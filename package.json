@@ -1,0 +1,12 @@
+{
+  "name": "songjeong-uri-workspace",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check app.js && node --check netlify/functions/shared-data.js"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^10.7.4"
+  }
+}

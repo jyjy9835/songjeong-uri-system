@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>송정우리 통합업무시스템</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="주요 메뉴">
+        <div class="brand">
+          <span class="brand-mark">S</span>
+          <div>
+            <h1>송정우리</h1>
+            <p>통합업무시스템</p>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-btn active" data-view="home" type="button">
+            <span class="nav-icon">오늘</span>
+            <span>오늘 현황</span>
+          </button>
+          <button class="nav-btn" data-view="monthly" type="button">
+            <span class="nav-icon">월간</span>
+            <span>월간 프로그램</span>
+          </button>
+          <button class="nav-btn" data-view="daily" type="button">
+            <span class="nav-icon">일정</span>
+            <span>일별 시간표</span>
+          </button>
+          <button class="nav-btn" data-view="vacation" type="button">
+            <span class="nav-icon">송영</span>
+            <span>휴가·송영 관리</span>
+          </button>
+          <button class="nav-btn" data-view="observations" type="button">
+            <span class="nav-icon">기록</span>
+            <span>관찰일지</span>
+          </button>
+          <button class="nav-btn" data-view="stats" type="button">
+            <span class="nav-icon">통계</span>
+            <span>근무 통계</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button id="admin-open-button" class="admin-open" type="button">
+            관리자
+          </button>
+          <p id="sync-status" class="sync-status">저장 상태 확인 중</p>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="page-header">
+          <div>
+            <p id="eyebrow" class="eyebrow">업무 대시보드</p>
+            <h2 id="page-title">오늘 현황</h2>
+          </div>
+          <div class="header-tools">
+            <span id="today-label" class="today-label"></span>
+          </div>
+        </header>
+
+        <section id="app" class="content" aria-live="polite"></section>
+      </main>
+    </div>
+
+    <div id="modal-root"></div>
+    <input id="backup-input" class="visually-hidden" type="file" accept="application/json" />
+    <script src="./app.js" defer></script>
+  </body>
+</html>
