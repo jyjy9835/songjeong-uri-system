@@ -706,6 +706,11 @@ button {
   background: #fff7c7;
 }
 
+.transport-table .half-row th,
+.transport-table .half-row td {
+  background: #d9f0ff;
+}
+
 .transport-table .day-route th,
 .transport-table .day-route td {
   background: #ccf1e3;
@@ -739,6 +744,10 @@ button {
 
 .transport-item.vacation {
   color: #ff5c00;
+}
+
+.transport-item.half {
+  color: #1570a8;
 }
 
 .list {
@@ -776,6 +785,64 @@ button {
 .empty.compact {
   padding: 8px;
   font-size: 0.78rem;
+}
+
+.work-stats-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.work-stats-panel .panel-head > div {
+  display: grid;
+  gap: 4px;
+}
+
+.stats-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.stats-summary-grid article {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+  background: var(--panel-soft);
+  display: grid;
+  gap: 4px;
+}
+
+.stats-summary-grid strong {
+  color: var(--navy);
+  font-size: 1.2rem;
+}
+
+.stats-summary-grid span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.work-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.work-stats-table th,
+.work-stats-table td {
+  border: 1px solid var(--line);
+  padding: 10px;
+  text-align: center;
+}
+
+.work-stats-table thead th {
+  background: var(--navy);
+  color: #fff;
+}
+
+.work-stats-table tbody th {
+  background: #f3f7fb;
 }
 
 .timetable-shell {
@@ -948,7 +1015,7 @@ button {
 
 .aftercare-add-row {
   display: grid;
-  grid-template-columns: 68px minmax(0, 1fr) 86px 48px;
+  grid-template-columns: 68px minmax(0, 1.25fr) 86px 48px;
   gap: 6px;
   align-items: center;
 }
@@ -961,6 +1028,11 @@ button {
   background: #fff;
   color: var(--ink);
   font-size: 0.78rem;
+}
+
+.aftercare-add-row select[multiple] {
+  min-height: 86px;
+  align-self: stretch;
 }
 
 .aftercare-entry-list {
@@ -1010,6 +1082,72 @@ button {
 
 .aftercare-print span {
   display: block;
+}
+
+.teacher-report-editor {
+  border-top: 1px solid var(--line);
+  padding: 14px;
+  background: #fbfdff;
+}
+
+.teacher-report-editor h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.teacher-report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.teacher-report-field {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.teacher-report-field span {
+  padding-top: 7px;
+  font-weight: 800;
+}
+
+.teacher-report-field textarea {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 7px 8px;
+  background: #fff;
+  color: var(--ink);
+  resize: vertical;
+}
+
+.teacher-report-print {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.82rem;
+}
+
+.teacher-report-print th,
+.teacher-report-print td {
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  background: #fff;
+}
+
+.teacher-report-print th {
+  background: #f3f7fb;
+  color: var(--navy);
+  text-align: center;
+}
+
+.teacher-report-print td:first-child {
+  width: 24%;
+  font-weight: 800;
+  text-align: center;
 }
 
 .teacher-picker {
@@ -1510,6 +1648,11 @@ button {
   .people-management-grid {
     grid-template-columns: 1fr;
   }
+
+  .teacher-report-grid,
+  .stats-summary-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 820px) {
@@ -1663,6 +1806,16 @@ button {
   body.printing-schedule .print-timetable tbody th,
   body.printing-schedule .print-timetable tbody td {
     padding: 1.6mm 1.3mm;
+  }
+
+  body.printing-schedule .teacher-report-print {
+    font-size: 7.2pt;
+    page-break-inside: avoid;
+  }
+
+  body.printing-schedule .teacher-report-print th,
+  body.printing-schedule .teacher-report-print td {
+    padding: 1.2mm 1.4mm;
   }
 
   body.printing-monthly,
