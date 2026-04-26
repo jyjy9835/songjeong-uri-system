@@ -6,6 +6,60 @@
   const SHARED_DATA_URL = "/.netlify/functions/shared-data";
   const SYNC_INTERVAL_MS = 10000;
   const KOREAN_DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+  const SUPPORT_FIELDS = ["rest", "docs", "desk"];
+  const SUPPORT_LABELS = {
+    rest: "휴게",
+    docs: "서류",
+    desk: "데스크"
+  };
+  const CORE_PROGRAM_OPTIONS = ["등원 / 출석 확인", "등원 및 개별학습", "점심식사 및 양치질 지도", "돌봄 / 서류 업무", "하원 준비", "개별지원"];
+  const USER_GROUPS = [
+    { key: "day", label: "주간" },
+    { key: "afterMonTueThuSat", label: "방과후(월화목토)" },
+    { key: "afterWedFriSat", label: "방과후(수금토)" }
+  ];
+  const SERVICE_CALENDARS = [
+    { key: "day", title: "주간 프로그램 (월~금)", service: "주간", allowedDays: [1, 2, 3, 4, 5] },
+    { key: "afterMonTueThuSat", title: "방과후(월화목토) 프로그램", service: "방과후(월화목토)", allowedDays: [1, 2, 4, 6] },
+    { key: "afterWedFriSat", title: "방과후(수금토) 프로그램", service: "방과후(수금토)", allowedDays: [3, 5, 6] }
+  ];
+  const MOVE_TYPES = [
+    { key: "vacation", label: "휴가", className: "note-row" },
+    { key: "morningHalf", label: "오전 반차", className: "note-row" },
+    { key: "afternoonHalf", label: "오후 반차", className: "note-row" },
+    { key: "dayCarnivalIn", label: "주간 카니발 등원", className: "day-route" },
+    { key: "dayCarnivalOut", label: "주간 카니발 하원", className: "day-route" },
+    { key: "dayMorningIn", label: "주간 모닝 등원", className: "day-route" },
+    { key: "dayMorningOut", label: "주간 모닝 하원", className: "day-route" },
+    { key: "afterOut", label: "방과후 하원", className: "after-route" }
+  ];
+  const MOVE_TYPE_LABELS = MOVE_TYPES.map((item) => item.label);
+  const AFTERCARE_INFO_TYPES = ["결석", "등원", "하원"];
+  const TEACHER_COLOR_PALETTE = ["#1f78ff", "#ef3b2d", "#2f9e44", "#ae3ec9", "#f08c00", "#0ca678", "#15aabf", "#e64980"];
+  const KOREA_HOLIDAYS_2026 = {
+    "2026-01-01": "신정",
+    "2026-02-16": "설날 연휴",
+    "2026-02-17": "설날",
+    "2026-02-18": "설날 연휴",
+    "2026-03-01": "삼일절",
+    "2026-03-02": "대체공휴일",
+    "2026-05-05": "어린이날",
+    "2026-05-01": "노동절",
+    "2026-05-24": "부처님오신날",
+    "2026-05-25": "대체공휴일",
+    "2026-06-03": "전국동시지방선거",
+    "2026-06-06": "현충일",
+    "2026-07-17": "제헌절",
+    "2026-08-15": "광복절",
+    "2026-08-17": "대체공휴일",
+    "2026-09-24": "추석 연휴",
+    "2026-09-25": "추석",
+    "2026-09-26": "추석 연휴",
+    "2026-10-03": "개천절",
+    "2026-10-05": "대체공휴일",
+    "2026-10-09": "한글날",
+    "2026-12-25": "성탄절"
+  };
 
   const categorySeed = [
     { id: "learning", name: "학습형" },
@@ -46,6 +100,7 @@
     home: "오늘 현황",
     monthly: "월간 프로그램",
     daily: "일별 시간표",
+    people: "이용인·교사 관리",
     vacation: "휴가·송영 관리",
     observations: "관찰일지",
     stats: "근무 통계",
@@ -58,8 +113,8 @@
     const d2 = offsetDate(2);
 
     return {
-      schemaVersion: 3,
-      serviceLabels: ["주간", "방과후1", "방과후2"],
+      schemaVersion: 4,
+      serviceLabels: SERVICE_CALENDARS.map((item) => item.service),
       categories: categorySeed,
       majorThemes: [
         "특수체육",
@@ -93,7 +148,7 @@
           major: "인지학습치료",
           topic: "순서 기억하기",
           session: 2,
-          service: "방과후1",
+          service: "방과후(월화목토)",
           time: "16:00",
           teacher: "담당자2",
           room: "교실1"
@@ -130,26 +185,37 @@
         {
           id: uid("move"),
           date: d0,
-          type: "송영",
+          type: "주간 카니발 하원",
           person: "담당자1",
-          time: "하원",
-          route: "차량1",
+          time: "",
+          route: "",
           memo: "하원 전 인원 확인"
         },
         {
           id: uid("move"),
           date: d1,
-          type: "휴가",
+          type: "오후 반차",
           person: "담당자2",
-          time: "오후",
+          time: "",
           route: "",
-          memo: "오후 반차"
+          memo: ""
         }
       ],
       observations: [],
       settings: {
         teachers: ["담당자1", "담당자2", "담당자3", "협력기관"],
+        teacherColors: {
+          담당자1: "#1f78ff",
+          담당자2: "#ef3b2d",
+          담당자3: "#2f9e44",
+          협력기관: "#ae3ec9"
+        },
         users: ["이용인1", "이용인2", "이용인3", "이용인4"],
+        userGroups: {
+          day: ["이용인1", "이용인2"],
+          afterMonTueThuSat: ["이용인3"],
+          afterWedFriSat: ["이용인4"]
+        },
         rooms: ["우리실", "활동실", "교실1", "교실2", "생활실", "외부"],
         timeSlots: [
           "09:00~09:30",
@@ -165,7 +231,8 @@
           "17:30~18:40"
         ],
         adminPin: "0000"
-      }
+      },
+      closedDates: []
     };
   }
 
@@ -195,6 +262,7 @@
     if (!Array.isArray(next.serviceLabels) || !next.serviceLabels.length) {
       next.serviceLabels = base.serviceLabels;
     }
+    next.serviceLabels = SERVICE_CALENDARS.map((item) => item.service);
 
     if (Array.isArray(input.monthlyPrograms)) {
       next.monthlyPrograms = input.monthlyPrograms.map(normalizeProgram);
@@ -262,8 +330,13 @@
       next.majorThemes = base.majorThemes;
     }
 
+    const hasStoredUserGroups = Boolean(input.settings?.userGroups);
+
     if (input.settings && input.settings.users && !Array.isArray(input.settings.users)) {
+      next.settings.userGroups = input.settings.users;
       next.settings.users = Object.values(input.settings.users).flat();
+    } else if (!hasStoredUserGroups) {
+      next.settings.userGroups = null;
     }
 
     ["teachers", "users", "rooms", "timeSlots"].forEach((key) => {
@@ -271,6 +344,11 @@
         next.settings[key] = base.settings[key];
       }
     });
+
+    next.settings.userGroups = normalizeUserGroups(next.settings.userGroups, next.settings.users);
+    next.settings.users = flattenUserGroups(next.settings.userGroups);
+    next.settings.teacherColors = normalizeTeacherColors(next.settings.teacherColors, next.settings.teachers);
+    next.closedDates = Array.isArray(input.closedDates) ? input.closedDates.map(cleanSelectValue).filter(Boolean).filter(unique) : [];
 
     return next;
   }
@@ -283,7 +361,7 @@
       major: program.major || "프로그램",
       topic: program.topic || "",
       session: Number(program.session || 1),
-      service: program.service || "주간",
+      service: normalizeServiceName(program.service || "주간"),
       time: program.time || "",
       teacher: program.teacher || "",
       room: program.room || ""
@@ -294,12 +372,82 @@
     return {
       id: entry.id || uid("move"),
       date: entry.date || todayIso,
-      type: entry.type || "송영",
+      type: normalizeMoveType(entry),
       person: entry.person || "",
       time: entry.time || "",
       route: entry.route || "",
       memo: entry.memo || entry.note || ""
     };
+  }
+
+  function normalizeMoveType(entry = {}) {
+    const type = cleanSelectValue(entry.type);
+    const text = `${type} ${entry.time || ""} ${entry.route || ""} ${entry.memo || ""} ${entry.note || ""}`;
+
+    if (MOVE_TYPE_LABELS.includes(type)) return type;
+    if (text.includes("방과후")) return "방과후 하원";
+    if (text.includes("모닝") && text.includes("등원")) return "주간 모닝 등원";
+    if (text.includes("모닝") && text.includes("하원")) return "주간 모닝 하원";
+    if (text.includes("카니발") && text.includes("등원")) return "주간 카니발 등원";
+    if (text.includes("카니발") && text.includes("하원")) return "주간 카니발 하원";
+    if (text.includes("오전") && (text.includes("반차") || text.includes("휴가"))) return "오전 반차";
+    if (text.includes("오후") && (text.includes("반차") || text.includes("휴가"))) return "오후 반차";
+    if (text.includes("등원")) return "주간 카니발 등원";
+    if (text.includes("하원") || type === "송영") return "주간 카니발 하원";
+    return "휴가";
+  }
+
+  function normalizeUserGroups(input, fallbackUsers = []) {
+    const groups = {};
+    USER_GROUPS.forEach((group) => {
+      groups[group.key] = [];
+    });
+
+    if (input && typeof input === "object") {
+      USER_GROUPS.forEach((group) => {
+        if (Array.isArray(input[group.key])) {
+          groups[group.key] = input[group.key].map(cleanSelectValue).filter(Boolean).filter(unique);
+        }
+      });
+    }
+
+    if (!flattenUserGroups(groups).length) {
+      groups.day = fallbackUsers.map(cleanSelectValue).filter(Boolean).filter(unique);
+    }
+
+    return groups;
+  }
+
+  function flattenUserGroups(groups = state.settings.userGroups) {
+    return USER_GROUPS.flatMap((group) => groups?.[group.key] || [])
+      .map(cleanSelectValue)
+      .filter(Boolean)
+      .filter(unique);
+  }
+
+  function syncUsersFromGroups() {
+    state.settings.userGroups = normalizeUserGroups(state.settings.userGroups, state.settings.users);
+    state.settings.users = flattenUserGroups(state.settings.userGroups);
+  }
+
+  function normalizeTeacherColors(input, teachers) {
+    const colors = {};
+    teachers.forEach((teacher, index) => {
+      colors[teacher] = normalizeColor(input?.[teacher]) || TEACHER_COLOR_PALETTE[index % TEACHER_COLOR_PALETTE.length];
+    });
+    return colors;
+  }
+
+  function normalizeColor(value) {
+    const color = cleanSelectValue(value);
+    return /^#[0-9a-f]{6}$/i.test(color) ? color : "";
+  }
+
+  function normalizeServiceName(service) {
+    const value = cleanSelectValue(service);
+    if (value === "after1" || value === "방과후1" || value.includes("월화목토")) return "방과후(월화목토)";
+    if (value === "after2" || value === "방과후2" || value.includes("수금토")) return "방과후(수금토)";
+    return "주간";
   }
 
   function inferCategory(text = "") {
@@ -311,13 +459,13 @@
   }
 
   function serviceNameFromLegacy(type) {
-    if (type === "after1") return "방과후1";
-    if (type === "after2") return "방과후2";
+    if (type === "after1") return "방과후(월화목토)";
+    if (type === "after2") return "방과후(수금토)";
     return "주간";
   }
 
   function saveState(message = "저장되었습니다.", options = {}) {
-    state.schemaVersion = 3;
+    state.schemaVersion = 4;
     state.updatedAt = new Date().toISOString();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     setSyncStatus(message);
@@ -447,6 +595,7 @@
     if (currentView === "home") renderHome();
     if (currentView === "monthly") renderMonthly();
     if (currentView === "daily") renderDaily();
+    if (currentView === "people") renderPeople();
     if (currentView === "vacation") renderVacation();
     if (currentView === "observations") renderObservations();
     if (currentView === "stats") renderStats();
@@ -466,25 +615,20 @@
 
     app.innerHTML = `
       <div class="dashboard-grid">
-        <article class="panel metric learning span-3">
+        <article class="panel metric learning span-4">
           <span>오늘 프로그램</span>
           <strong>${programs.length}</strong>
           <span>${programs.length ? "월간 프로그램에 등록됨" : "등록된 프로그램 없음"}</span>
         </article>
-        <article class="panel metric vacation span-3">
+        <article class="panel metric vacation span-4">
           <span>휴가·송영</span>
           <strong>${moves.length}</strong>
           <span>${moves.length ? "오늘 확인할 항목" : "오늘 항목 없음"}</span>
         </article>
-        <article class="panel metric records span-3">
+        <article class="panel metric records span-4">
           <span>시간표 입력</span>
           <strong>${openSchedules}</strong>
-          <span>선택 완료된 칸</span>
-        </article>
-        <article class="panel metric span-3">
-          <span>저장 방식</span>
-          <strong>${shared.available ? "공동" : "로컬"}</strong>
-          <span>${shared.available ? "여러 기기 자동 반영" : "이 기기 안에 저장"}</span>
+          <span>선택 완료된 항목</span>
         </article>
 
         <section class="panel span-7">
@@ -507,10 +651,13 @@
           </div>
         </section>
 
-        <section class="panel span-12">
+        <section class="panel span-12 schedule-print-panel">
           <div class="panel-head">
             <h3>오늘 시간표</h3>
-            <button class="ghost-button" data-view-jump="daily" type="button">시간표 편집</button>
+            <div class="panel-actions">
+              <button class="ghost-button" data-print-schedule type="button">인쇄</button>
+              <button class="ghost-button" data-view-jump="daily" type="button">시간표 편집</button>
+            </div>
           </div>
           <div class="panel-body">
             ${renderTodayScheduleSummary()}
@@ -530,10 +677,13 @@
           <button class="ghost-button" data-month-action="today" type="button">이번 달</button>
         </div>
         <div class="toolbar-right">
-          <span class="muted">날짜를 선택해서 프로그램을 추가하거나 수정합니다.</span>
+          <button class="primary-button" data-print-monthly type="button">월간 인쇄</button>
+          <span class="muted">공휴일과 휴무일에는 프로그램을 등록하지 않습니다.</span>
         </div>
       </div>
-      ${renderCalendar(monthlyCursor, "program")}
+      <div class="service-calendar-stack">
+        ${SERVICE_CALENDARS.map((calendar) => renderProgramCalendar(monthlyCursor, calendar)).join("")}
+      </div>
     `;
   }
 
@@ -547,10 +697,123 @@
           <button class="ghost-button" data-vacation-month-action="today" type="button">이번 달</button>
         </div>
         <div class="toolbar-right">
-          <span class="muted">휴가, 외출, 등원·하원 송영을 한 달 단위로 확인합니다.</span>
+          <button class="primary-button" data-print-transport type="button">A4 인쇄</button>
+          <span class="muted">휴무와 공휴일은 월간 프로그램 달력과 동일하게 표시됩니다.</span>
         </div>
       </div>
-      ${renderCalendar(vacationCursor, "move")}
+      ${renderTransportCalendar(vacationCursor)}
+    `;
+  }
+
+  function renderProgramCalendar(cursor, calendar) {
+    const days = monthGridDays(cursor, 0);
+    const cells = days
+      .map((date) => {
+        const iso = toIsoDate(date);
+        const outside = date.getMonth() !== cursor.getMonth();
+        const day = date.getDay();
+        const isToday = iso === todayIso;
+        const holiday = holidayName(iso);
+        const customClosed = isCustomClosed(iso);
+        const closed = isClosedDate(iso);
+        const allowed = calendar.allowedDays.includes(day) && !closed && !outside;
+        const canOpen = calendar.allowedDays.includes(day) && !outside && !isSundayDate(iso) && !holiday;
+        const items = programsForDate(iso).filter((program) => normalizeServiceName(program.service) === calendar.service);
+
+        return `
+          <div class="day-cell program-day ${outside ? "outside" : ""} ${isToday ? "today" : ""} ${closed ? "closed" : ""} ${!allowed ? "disabled" : ""}">
+            <div class="day-top">
+              <span class="day-number">${date.getDate()}</span>
+              ${canOpen ? `<button class="add-dot" data-open-program-date="${h(iso)}" data-program-service="${h(calendar.service)}" type="button">+</button>` : ""}
+            </div>
+            ${holiday ? `<div class="holiday-label">${h(holiday)}</div>` : ""}
+            ${customClosed ? `<button class="holiday-label closed-cancel" data-toggle-closed-date="${h(iso)}" type="button">휴무 취소</button>` : ""}
+            <div class="chip-list">
+              ${items
+                .slice(0, 4)
+                .map((item) => `<span class="chip category-${h(item.category)}">${h(shortProgramLabel(item))}</span>`)
+                .join("")}
+              ${items.length > 4 ? `<span class="chip">외 ${items.length - 4}건</span>` : ""}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    return `
+      <section class="service-calendar">
+        <div class="service-calendar-head">
+          <h3>${h(calendar.title)}</h3>
+          <span>${h(formatMonth(cursor))}</span>
+        </div>
+        <div class="calendar program-calendar">
+          <div class="calendar-weekdays">
+            ${KOREAN_DAYS.map((day, index) => `<div class="${index === 0 ? "sunday" : ""}">${day}</div>`).join("")}
+          </div>
+          <div class="calendar-grid">
+            ${cells}
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderTransportCalendar(cursor) {
+    const weeks = transportCalendarWeeks(cursor);
+    const rowTypes = MOVE_TYPES;
+
+    return `
+      <section class="transport-calendar transport-print-panel">
+        <h3>${cursor.getFullYear()}년 ${cursor.getMonth() + 1}월 <span class="green-text">주간</span> <span class="violet-text">방과후</span> 등하원 송영 / <span class="orange-text">휴가</span> / <span class="blue-text">반차</span></h3>
+        <div class="transport-table-wrap">
+          <table class="transport-table">
+            <thead>
+              <tr>
+                <th>비고</th>
+                ${["월", "화", "수", "목", "금", "토"].map((day) => `<th>${day}</th>`).join("")}
+              </tr>
+              <tr>
+                <th>날짜</th>
+                ${["", "", "", "", "", ""].map(() => `<th></th>`).join("")}
+              </tr>
+            </thead>
+            <tbody>
+              ${weeks
+                .map((week) => {
+                  const sunday = new Date(week[0]);
+                  sunday.setDate(sunday.getDate() - 1);
+                  return `
+                    <tr class="date-row">
+                      <th class="${transportDayClasses(sunday, cursor)}"><span>${sunday.getDate()}</span></th>
+                      ${week
+                        .map((date) => {
+                          const iso = toIsoDate(date);
+                          return `<td class="${transportDayClasses(date, cursor)}">
+                            <span>${date.getDate()}</span>
+                            ${!isClosedDate(iso) && date.getMonth() === cursor.getMonth() ? `<button class="add-dot small" data-open-move-date="${h(iso)}" type="button">+</button>` : ""}
+                          </td>`;
+                        })
+                        .join("")}
+                    </tr>
+                    ${rowTypes
+                      .map(
+                        (row) => `
+                          <tr class="${h(row.className)}">
+                            <th>${h(row.label)}</th>
+                            ${week
+                              .map((date) => renderTransportCell(date, cursor, row.label))
+                              .join("")}
+                          </tr>
+                        `
+                      )
+                      .join("")}
+                  `;
+                })
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      </section>
     `;
   }
 
@@ -607,13 +870,82 @@
     `;
   }
 
+  function monthGridDays(cursor, weekStart = 0) {
+    const first = startOfMonth(cursor);
+    const start = new Date(first);
+    const offset = (first.getDay() - weekStart + 7) % 7;
+    start.setDate(first.getDate() - offset);
+    const days = [];
+
+    for (let i = 0; i < 42; i += 1) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      days.push(date);
+    }
+
+    return days;
+  }
+
+  function transportCalendarWeeks(cursor) {
+    const first = startOfMonth(cursor);
+    const start = new Date(first);
+    const mondayOffset = (first.getDay() + 6) % 7;
+    start.setDate(first.getDate() - mondayOffset);
+    const weeks = [];
+
+    for (let weekIndex = 0; weekIndex < 6; weekIndex += 1) {
+      const week = [];
+      for (let dayIndex = 0; dayIndex < 6; dayIndex += 1) {
+        const date = new Date(start);
+        date.setDate(start.getDate() + weekIndex * 7 + dayIndex);
+        week.push(date);
+      }
+
+      if (week.some((date) => date.getMonth() === cursor.getMonth())) weeks.push(week);
+    }
+
+    return weeks;
+  }
+
+  function transportDayClasses(date, cursor) {
+    const iso = toIsoDate(date);
+    return [
+      date.getMonth() !== cursor.getMonth() ? "outside" : "",
+      isClosedDate(iso) ? "closed" : "",
+      KOREA_HOLIDAYS_2026[iso] ? "holiday" : ""
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  function renderTransportCell(date, cursor, key) {
+    const iso = toIsoDate(date);
+    const outside = date.getMonth() !== cursor.getMonth();
+    const closed = isClosedDate(iso);
+    const label = closed ? closedDateLabel(iso) : "";
+    const items = outside ? [] : movesForDate(iso).filter((item) => transportRowKey(item) === key);
+
+    return `
+      <td class="${outside ? "outside" : ""} ${closed ? "closed" : ""}">
+        ${label && key === "휴가" ? `<div class="closed-text">${h(label)}</div>` : ""}
+        ${items.map(renderTransportItem).join("")}
+      </td>
+    `;
+  }
+
+  function renderTransportItem(item) {
+    const typeMeta = MOVE_TYPES.find((type) => type.label === item.type);
+    const itemClass = typeMeta?.className === "note-row" ? "vacation" : "transport";
+    return `<div class="transport-item ${itemClass}">${teacherBadge(item.person, item.person || "담당자 미정")}${item.memo ? ` <span>${h(item.memo)}</span>` : ""}</div>`;
+  }
+
+  function transportRowKey(item) {
+    return normalizeMoveType(item);
+  }
+
   function renderDaily() {
     ensureDailySchedule(dailyDate);
-    const programs = programsForDate(dailyDate);
-    const options = ["", ...programs.map(programOptionLabel), "등원 / 출석 확인", "점심시간 및 양치 지도", "하원 준비", "개별지원"].filter(
-      unique
-    );
-    const gridColumns = `112px repeat(${state.serviceLabels.length}, minmax(230px, 1fr))`;
+    const programOptions = programOptionsForDate(dailyDate);
 
     app.innerHTML = `
       <div class="toolbar-row">
@@ -625,55 +957,239 @@
           <button class="ghost-button" data-copy-programs-to-schedule type="button">월간 프로그램 불러오기</button>
         </div>
         <div class="toolbar-right">
-          <span class="muted">각 칸의 프로그램, 담당자, 장소, 이용인, 메모를 바로 선택할 수 있습니다.</span>
+          <button class="primary-button" data-print-schedule type="button">A4 인쇄</button>
+          <span class="muted">같은 시간대의 교사와 이용인은 중복되지 않게 자동 정리됩니다.</span>
         </div>
       </div>
-      <div class="timetable-shell">
-        <div class="timetable" style="grid-template-columns: ${gridColumns}">
-          <div class="time-head">시간</div>
-          ${state.serviceLabels.map((label) => `<div class="service-head">${h(label)}</div>`).join("")}
-          ${state.settings.timeSlots
-            .map((slot) => {
-              return `
-                <div class="time-label">${h(slot)}</div>
-                ${state.serviceLabels
-                  .map((service) => renderScheduleCell(dailyDate, slot, service, options))
-                  .join("")}
-              `;
-            })
-            .join("")}
+      <section class="daily-editor-section">
+        <div class="timetable-shell">
+          ${renderScheduleEditorTable(dailyDate, programOptions)}
         </div>
+      </section>
+      <section class="panel schedule-print-panel">
+        <div class="panel-head">
+          <h3>인쇄 미리보기</h3>
+          <button class="ghost-button" data-print-schedule type="button">인쇄</button>
+        </div>
+        <div class="panel-body print-preview-wrap">
+          ${renderSchedulePrintSheet(dailyDate)}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderScheduleEditorTable(date, programOptions) {
+    const rows = [];
+    let aftercareBandAdded = false;
+
+    state.settings.timeSlots.forEach((slot, index) => {
+      if (index === 0) {
+        rows.push(renderScheduleServiceBand("주간 활동 서비스", dayScheduleRangeLabel()));
+      }
+
+      if (isAftercareSlot(slot) && !aftercareBandAdded) {
+        rows.push(renderScheduleServiceBand("방과후 활동 서비스", aftercareScheduleRangeLabel(), "aftercare-band"));
+        aftercareBandAdded = true;
+      }
+
+      rows.push(
+        renderScheduleSlotRows(date, slot, programOptions, {
+          showAftercareInfo: isAftercareSlot(slot) && slot === firstAftercareSlot(),
+          aftercareRowSpan: aftercareEditorRowSpan(date)
+        })
+      );
+    });
+
+    return `
+      <datalist id="schedule-program-options">
+        ${programOptions
+          .filter(Boolean)
+          .map((option) => `<option value="${h(option)}"></option>`)
+          .join("")}
+      </datalist>
+      <table class="schedule-editor-table">
+        <thead>
+          <tr>
+            <th>시간</th>
+            <th>프로그램</th>
+            <th>교실</th>
+            <th>담당 교사</th>
+            <th>이용인</th>
+            <th>휴게</th>
+            <th>서류</th>
+            <th>데스크</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function renderScheduleServiceBand(label, range, className = "") {
+    return `
+      <tr class="service-band ${h(className)}">
+        <th colspan="8">${h(label)} (${h(range)})</th>
+      </tr>
+    `;
+  }
+
+  function renderScheduleSlotRows(date, slot, programOptions, options = {}) {
+    const slotRecord = getScheduleSlot(date, slot);
+    const groups = slotRecord.groups.length ? slotRecord.groups : [blankScheduleGroup()];
+    const rowSpan = groups.length;
+    const aftercare = isAftercareSlot(slot);
+
+    return groups
+      .map((group, index) => {
+        const groupTeachers = new Set(groups.filter((item) => item.id !== group.id).map((item) => item.teacher).filter(Boolean));
+        const blockedTeachers = aftercare ? groupTeachers : new Set([...groupTeachers, ...supportValues(slotRecord)]);
+
+        return `
+          <tr class="schedule-group-row">
+            ${index === 0 ? `<th class="time-label" rowspan="${rowSpan}">${formatSlotLabel(slot)}</th>` : ""}
+            <td>
+              <input class="schedule-program-input" list="schedule-program-options" data-schedule-group-field="program" data-slot="${h(slot)}" data-group-id="${h(group.id)}" value="${h(group.program)}" placeholder="프로그램 선택 또는 직접 입력" aria-label="${h(slot)} 프로그램" />
+            </td>
+            <td>
+              <select data-schedule-group-field="room" data-slot="${h(slot)}" data-group-id="${h(group.id)}" aria-label="${h(slot)} 교실">
+                ${["", ...state.settings.rooms].filter(unique).map((room) => renderOption(room, group.room, "교실 선택")).join("")}
+              </select>
+            </td>
+            <td>
+              <select data-schedule-group-field="teacher" data-slot="${h(slot)}" data-group-id="${h(group.id)}" aria-label="${h(slot)} 담당 교사">
+                ${renderTeacherOptions(group.teacher, blockedTeachers, "교사 선택")}
+              </select>
+              <div class="group-actions">
+                <button class="mini-button" data-add-schedule-group="${h(slot)}" type="button">+ 그룹 추가</button>
+                ${groups.length > 1 ? `<button class="mini-button danger-mini" data-remove-schedule-group="${h(group.id)}" data-slot="${h(slot)}" type="button">삭제</button>` : ""}
+              </div>
+            </td>
+            <td>
+              ${renderUserPicker(slot, groups, group)}
+            </td>
+            ${
+              index === 0
+                ? aftercare
+                  ? options.showAftercareInfo
+                    ? `<td class="aftercare-info-cell" rowspan="${options.aftercareRowSpan || rowSpan}" colspan="3">${renderAftercareInfo(date)}</td>`
+                    : ""
+                  : SUPPORT_FIELDS.map(
+                      (field) => `
+                        <td rowspan="${rowSpan}">
+                          ${renderSupportSelect(slot, slotRecord, field)}
+                        </td>
+                      `
+                    ).join("")
+                : ""
+            }
+          </tr>
+        `;
+      })
+      .join("");
+  }
+
+  function renderAftercareInfo(date) {
+    const value = getAftercareInfo(date);
+    const timeOptions = aftercareTimeOptions();
+    const users = allowedUsersForSlot(firstAftercareSlot() || "");
+    return `
+      <div class="aftercare-info" data-aftercare-info>
+        <strong>등하원 정보 및 전달 사항</strong>
+        <div class="aftercare-add-row">
+          <select data-aftercare-draft="type" aria-label="등하원 구분">
+            ${AFTERCARE_INFO_TYPES.map((type) => `<option value="${h(type)}">${h(type)}</option>`).join("")}
+          </select>
+          <select data-aftercare-draft="user" aria-label="이용인 선택">
+            <option value="">이용인 선택</option>
+            ${users.map((user) => `<option value="${h(user)}">${h(user)}</option>`).join("")}
+          </select>
+          <select data-aftercare-draft="time" aria-label="시간 선택" disabled>
+            <option value="">시간 선택</option>
+            ${timeOptions.map((time) => `<option value="${h(time)}">${h(time)}</option>`).join("")}
+          </select>
+          <button class="mini-button" data-add-aftercare-item type="button">추가</button>
+        </div>
+        <div class="aftercare-entry-list">
+          ${
+            value.items.length
+              ? value.items
+                  .map(
+                    (item) => `
+                      <div class="aftercare-entry">
+                        <span>${h(item.type)} · ${h(item.user)}${item.time ? ` · ${h(item.time)}` : ""}</span>
+                        <button class="mini-button danger-mini" data-remove-aftercare-item="${h(item.id)}" type="button">삭제</button>
+                      </div>
+                    `
+                  )
+                  .join("")
+              : `<div class="empty compact">등록된 등하원 정보가 없습니다.</div>`
+          }
+        </div>
+        <label class="full">
+          <span>전달사항</span>
+          <textarea data-aftercare-field="memo" rows="2" placeholder="전달사항">${h(value.memo)}</textarea>
+        </label>
       </div>
     `;
   }
 
-  function renderScheduleCell(date, slot, service, programOptions) {
-    const key = scheduleKey(slot, service);
-    const cell = state.dailySchedules[date][key] || {};
+  function renderUserPicker(slot, groups, group) {
+    const selected = new Set(normalizeUserList(group.users));
+    const usedByOtherGroups = new Set(groups.filter((item) => item.id !== group.id).flatMap((item) => normalizeUserList(item.users)));
+    const allowedGroups = allowedUserGroupsForSlot(slot);
 
     return `
-      <div class="schedule-cell" data-slot="${h(slot)}" data-service="${h(service)}">
-        <select data-schedule-field="program" aria-label="${h(slot)} ${h(service)} 프로그램">
-          ${programOptions
-            .map((option) => `<option value="${h(option)}" ${cell.program === option ? "selected" : ""}>${h(option || "프로그램 선택")}</option>`)
-            .join("")}
-        </select>
-        <select data-schedule-field="teacher" aria-label="${h(slot)} ${h(service)} 담당자">
-          ${["", ...state.settings.teachers]
-            .filter(unique)
-            .map((teacher) => `<option value="${h(teacher)}" ${cell.teacher === teacher ? "selected" : ""}>${h(teacher || "담당자 선택")}</option>`)
-            .join("")}
-        </select>
-        <select data-schedule-field="room" aria-label="${h(slot)} ${h(service)} 장소">
-          ${["", ...state.settings.rooms]
-            .filter(unique)
-            .map((room) => `<option value="${h(room)}" ${cell.room === room ? "selected" : ""}>${h(room || "장소 선택")}</option>`)
-            .join("")}
-        </select>
-        <input data-schedule-field="users" value="${h(cell.users || "")}" placeholder="이용인" />
-        <input class="memo-input" data-schedule-field="memo" value="${h(cell.memo || "")}" placeholder="메모" />
+      <div class="people-picker" data-schedule-group data-slot="${h(slot)}" data-group-id="${h(group.id)}">
+        ${USER_GROUPS.filter((userGroup) => allowedGroups.includes(userGroup.key)).map((userGroup) => {
+            const users = state.settings.userGroups?.[userGroup.key] || [];
+            if (!users.length) return "";
+            return `
+              <div class="picker-group-label">${h(userGroup.label)}</div>
+              ${users
+                .map((user) => {
+                  const isChecked = selected.has(user);
+                  const isDisabled = !isChecked && usedByOtherGroups.has(user);
+                  return `
+                    <label class="check-row ${isDisabled ? "disabled" : ""}">
+                      <input data-schedule-user type="checkbox" value="${h(user)}" ${isChecked ? "checked" : ""} ${isDisabled ? "disabled" : ""} />
+                      <span>${h(user)}</span>
+                    </label>
+                  `;
+                })
+                .join("")}
+            `;
+          })
+          .join("")}
       </div>
     `;
+  }
+
+  function renderSupportSelect(slot, slotRecord, field) {
+    const groupTeachers = new Set(slotRecord.groups.map((group) => group.teacher).filter(Boolean));
+    const otherSupport = new Set(SUPPORT_FIELDS.filter((item) => item !== field).map((item) => slotRecord[item]).filter(Boolean));
+    const blocked = new Set([...groupTeachers, ...otherSupport]);
+
+    return `
+      <select data-schedule-support-field="${h(field)}" data-slot="${h(slot)}" aria-label="${h(slot)} ${h(SUPPORT_LABELS[field])}">
+        ${renderTeacherOptions(slotRecord[field], blocked, `${SUPPORT_LABELS[field]} 선택`)}
+      </select>
+    `;
+  }
+
+  function renderTeacherOptions(selected, blocked, emptyLabel) {
+    return ["", ...state.settings.teachers]
+      .filter(unique)
+      .map((teacher) => {
+        const disabled = teacher && teacher !== selected && blocked.has(teacher);
+        return renderOption(teacher, selected, emptyLabel, disabled);
+      })
+      .join("");
+  }
+
+  function renderOption(value, selected, emptyLabel, disabled = false) {
+    return `<option value="${h(value)}" ${selected === value ? "selected" : ""} ${disabled ? "disabled" : ""}>${h(value || emptyLabel)}</option>`;
   }
 
   function renderObservations() {
@@ -694,18 +1210,18 @@
               <label class="field">
                 <span>이용인</span>
                 <select name="user" required>
-                  ${state.settings.users.map((user) => `<option value="${h(user)}">${h(user)}</option>`).join("")}
+                  ${flattenUserGroups().map((user) => `<option value="${h(user)}">${h(user)}</option>`).join("")}
                 </select>
               </label>
               <label class="field">
-                <span>담당자</span>
+                <span>관찰자</span>
                 <select name="teacher">
                   ${state.settings.teachers.map((teacher) => `<option value="${h(teacher)}">${h(teacher)}</option>`).join("")}
                 </select>
               </label>
               <label class="field">
-                <span>활동</span>
-                <input name="activity" placeholder="활동명" />
+                <span>관찰 시간</span>
+                <input name="activity" placeholder="예: 10:00~10:30" />
               </label>
               <label class="field full">
                 <span>내용</span>
@@ -720,6 +1236,7 @@
         <section class="panel span-7">
           <div class="panel-head">
             <h3>최근 기록</h3>
+            <button class="ghost-button" data-print-observations type="button">선택 인쇄</button>
           </div>
           <div class="panel-body">
             ${
@@ -728,8 +1245,11 @@
                     .map(
                       (item) => `
                         <article class="list-item">
-                          <strong>${h(item.user)} · ${h(item.activity || "활동")}</strong>
-                          <small>${h(formatShortDate(item.date))} / ${h(item.teacher || "담당자 미지정")}</small>
+                          <label class="select-line">
+                            <input data-observation-print-select type="checkbox" value="${h(item.id)}" />
+                            <strong>${h(item.user || "이용인 미지정")} · ${h(item.activity || "관찰 시간 미입력")}</strong>
+                          </label>
+                          <small>${h(formatShortDate(item.date))} / ${teacherBadge(item.teacher, "관찰자 미지정")}</small>
                           <span>${h(item.summary)}</span>
                           <div>
                             <button class="danger-button" data-delete-observation="${h(item.id)}" type="button">삭제</button>
@@ -740,9 +1260,31 @@
                     .join("")}</div>`
                 : `<div class="empty">아직 작성된 관찰일지가 없습니다.</div>`
             }
+            ${observations.length ? `<div class="observation-print-area">${renderObservationPrintSheet(observations)}</div>` : ""}
           </div>
         </section>
       </div>
+    `;
+  }
+
+  function renderObservationPrintSheet(observations) {
+    return `
+      <section class="observation-print-sheet">
+        <h3>송정우리 관찰일지</h3>
+        ${observations
+          .map(
+            (item) => `
+              <article class="observation-print-item" data-observation-print-item="${h(item.id)}">
+                <header>
+                  <strong>${h(item.user || "이용인 미지정")}</strong>
+                  <span>${h(formatShortDate(item.date))} / ${teacherBadge(item.teacher, "관찰자 미지정")} / ${h(item.activity || "관찰 시간 미입력")}</span>
+                </header>
+                <p>${h(item.summary)}</p>
+              </article>
+            `
+          )
+          .join("")}
+      </section>
     `;
   }
 
@@ -758,7 +1300,7 @@
       .map(
         ([teacher, count]) => `
           <article class="list-item">
-            <strong>${h(teacher)}</strong>
+            <strong>${teacherBadge(teacher)}</strong>
             <span>월간 프로그램 ${count}건 배정</span>
           </article>
         `
@@ -792,6 +1334,83 @@
     `;
   }
 
+  function renderPeople() {
+    syncUsersFromGroups();
+
+    app.innerHTML = `
+      <div class="dashboard-grid">
+        <section class="panel span-8">
+          <div class="panel-head">
+            <h3>이용인 관리</h3>
+          </div>
+          <div class="panel-body">
+            <div class="people-management-grid">
+              ${USER_GROUPS.map(renderUserGroupCard).join("")}
+            </div>
+          </div>
+        </section>
+        <section class="panel span-4">
+          <div class="panel-head">
+            <h3>교사 관리</h3>
+          </div>
+          <div class="panel-body">
+            <form class="inline-add-form" data-add-teacher-form>
+              <input name="name" placeholder="교사 이름" autocomplete="off" />
+              <button class="primary-button" type="submit">추가</button>
+            </form>
+            <div class="people-list teacher-list">
+              ${state.settings.teachers.map(renderTeacherRow).join("") || `<div class="empty">등록된 교사가 없습니다.</div>`}
+            </div>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  function renderUserGroupCard(group) {
+    const users = state.settings.userGroups?.[group.key] || [];
+
+    return `
+      <article class="people-card">
+        <header>
+          <div>
+            <h4>${h(group.label)}</h4>
+            <span>${users.length}명</span>
+          </div>
+        </header>
+        <form class="inline-add-form" data-add-user-form data-user-group="${h(group.key)}">
+          <input name="name" placeholder="이용인 이름" autocomplete="off" />
+          <button class="primary-button" type="submit">추가</button>
+        </form>
+        <div class="people-list">
+          ${users.map((user) => renderUserRow(group.key, user)).join("") || `<div class="empty">등록된 이용인이 없습니다.</div>`}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderUserRow(groupKey, user) {
+    return `
+      <div class="person-row">
+        <input data-user-edit value="${h(user)}" aria-label="${h(user)} 이름 수정" />
+        <button class="ghost-button" data-update-user="${h(user)}" data-user-group="${h(groupKey)}" type="button">수정</button>
+        <button class="danger-button" data-delete-user="${h(user)}" data-user-group="${h(groupKey)}" type="button">삭제</button>
+      </div>
+    `;
+  }
+
+  function renderTeacherRow(teacher) {
+    const color = teacherColor(teacher);
+    return `
+      <div class="person-row teacher-row">
+        <input data-teacher-edit value="${h(teacher)}" aria-label="${h(teacher)} 이름 수정" />
+        <input class="teacher-color-input" data-teacher-color type="color" value="${h(color)}" aria-label="${h(teacher)} 색상" />
+        <button class="ghost-button" data-update-teacher="${h(teacher)}" type="button">수정</button>
+        <button class="danger-button" data-delete-teacher="${h(teacher)}" type="button">삭제</button>
+      </div>
+    `;
+  }
+
   function renderSettings() {
     if (!adminUnlocked) {
       app.innerHTML = `
@@ -816,11 +1435,14 @@
         <div class="panel-body">
           <form id="settings-form" class="settings-grid">
             ${renderTextareaSetting("serviceLabels", "서비스 구분", state.serviceLabels)}
-            ${renderTextareaSetting("teachers", "담당자", state.settings.teachers)}
-            ${renderTextareaSetting("users", "이용인", state.settings.users)}
             ${renderTextareaSetting("rooms", "장소", state.settings.rooms)}
             ${renderTextareaSetting("timeSlots", "시간표 시간", state.settings.timeSlots)}
             ${renderTextareaSetting("majorThemes", "대주제 후보", state.majorThemes)}
+            <div class="setting-card">
+              <h4>이용인·교사 명단</h4>
+              <span class="muted">명단 추가, 수정, 삭제는 왼쪽 메뉴의 이용인·교사 탭에서 관리합니다.</span>
+              <button class="ghost-button" data-view-jump="people" type="button">명단 관리 열기</button>
+            </div>
             <label class="setting-card">
               <h4>관리자 비밀번호</h4>
               <input name="adminPin" type="password" value="${h(state.settings.adminPin || "0000")}" />
@@ -857,7 +1479,6 @@
               <article class="list-item">
                 <strong>${h(program.major)}${program.topic ? ` · ${h(program.topic)}` : ""}</strong>
                 <small>${h(categoryName(program.category))} / ${h(program.session)}차시 / ${h(program.service || "구분 없음")}</small>
-                ${compact ? "" : `<span>${h(program.time || "시간 미정")} · ${h(program.teacher || "담당자 미정")} · ${h(program.room || "장소 미정")}</span>`}
               </article>
             `
           )
@@ -875,8 +1496,7 @@
           .map(
             (item) => `
               <article class="list-item">
-                <strong>${h(item.type)} · ${h(item.person || "대상 미정")}</strong>
-                <small>${h(item.time || "시간 미정")} ${item.route ? `/ ${h(item.route)}` : ""}</small>
+                <strong>${h(item.type)} · ${teacherBadge(item.person, item.person || "대상 미정")}</strong>
                 ${item.memo ? `<span>${h(item.memo)}</span>` : ""}
               </article>
             `
@@ -888,32 +1508,116 @@
 
   function renderTodayScheduleSummary() {
     ensureDailySchedule(todayIso);
-    const entries = Object.entries(state.dailySchedules[todayIso])
-      .filter(([, cell]) => cell.program || cell.teacher || cell.room || cell.users || cell.memo)
-      .slice(0, 8);
 
-    if (!entries.length) return `<div class="empty">아직 선택된 시간표가 없습니다.</div>`;
+    return `<div class="print-preview-wrap today-schedule-preview">${renderSchedulePrintSheet(todayIso)}</div>`;
+  }
+
+  function renderSchedulePrintSheet(date) {
+    ensureDailySchedule(date);
+    const rows = [];
+    let aftercareBandAdded = false;
+
+    state.settings.timeSlots.forEach((slot, index) => {
+      if (index === 0) {
+        rows.push(renderScheduleServiceBand("주간 활동 서비스", dayScheduleRangeLabel()));
+      }
+
+      if (isAftercareSlot(slot) && !aftercareBandAdded) {
+        rows.push(renderScheduleServiceBand("방과후 활동 서비스", aftercareScheduleRangeLabel(), "aftercare-band"));
+        aftercareBandAdded = true;
+      }
+
+      rows.push(
+        renderSchedulePrintRows(date, slot, {
+          showAftercareInfo: isAftercareSlot(slot) && slot === firstAftercareSlot(),
+          aftercareRowSpan: aftercareEditorRowSpan(date)
+        })
+      );
+    });
 
     return `
-      <div class="list">
-        ${entries
-          .map(([key, cell]) => {
-            const [slot, service] = key.split("||");
-            return `
-              <article class="list-item">
-                <strong>${h(slot)} · ${h(service)}</strong>
-                <span>${h(cell.program || "프로그램 미지정")}</span>
-                <small>${h(cell.teacher || "담당자 미지정")} / ${h(cell.room || "장소 미지정")}</small>
-              </article>
-            `;
-          })
-          .join("")}
+      <article class="print-sheet">
+        <header class="print-sheet-head">
+          <div>
+            <strong>송정우리 일별 시간표</strong>
+            <span>${h(formatLongDate(date))}</span>
+          </div>
+        </header>
+        <table class="print-timetable">
+          <thead>
+            <tr>
+              <th>시간</th>
+              <th>프로그램</th>
+              <th>교실</th>
+              <th>담당 교사</th>
+              <th>이용인</th>
+              <th>휴게</th>
+              <th>서류</th>
+              <th>데스크</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.join("")}
+          </tbody>
+        </table>
+      </article>
+    `;
+  }
+
+  function renderSchedulePrintRows(date, slot, options = {}) {
+    const slotRecord = getScheduleSlot(date, slot);
+    const groups = (slotRecord.groups || []).filter(scheduleGroupHasContent);
+    if (!groups.length) groups.push(blankScheduleGroup());
+    const rowSpan = groups.length;
+    const aftercare = isAftercareSlot(slot);
+
+    return groups
+      .map(
+        (group, index) => `
+          <tr>
+            ${index === 0 ? `<th class="time-label" rowspan="${rowSpan}">${formatSlotLabel(slot)}</th>` : ""}
+            <td>${h(group.program || "")}</td>
+            <td>${h(group.room || "")}</td>
+            <td>${teacherBadge(group.teacher, "")}</td>
+            <td>${h(normalizeUserList(group.users).join(", "))}</td>
+            ${
+              index === 0
+                ? aftercare
+                  ? options.showAftercareInfo
+                    ? `<td class="aftercare-print-cell" colspan="3" rowspan="${options.aftercareRowSpan || rowSpan}">${renderAftercarePrint(getAftercareInfo(date))}</td>`
+                    : ""
+                  : `<td rowspan="${rowSpan}">${teacherBadge(slotRecord.rest, "")}</td>
+                     <td rowspan="${rowSpan}">${teacherBadge(slotRecord.docs, "")}</td>
+                     <td rowspan="${rowSpan}">${teacherBadge(slotRecord.desk, "")}</td>`
+                : ""
+            }
+          </tr>
+        `
+      )
+      .join("");
+  }
+
+  function renderAftercarePrint(info) {
+    const value = normalizeAfterInfo(info);
+    const rows = value.items.map((item) => [item.type, `${item.user}${item.time ? ` ${item.time}` : ""}`]);
+    if (value.memo) rows.push(["전달", value.memo]);
+
+    if (!rows.length) return "";
+
+    return `
+      <div class="aftercare-print">
+        <strong>등하원 정보 및 전달 사항</strong>
+        ${rows.map(([label, text]) => `<span><b>${h(label)}</b> ${h(text)}</span>`).join("")}
       </div>
     `;
   }
 
-  function openProgramModal(date) {
+  function openProgramModal(date, servicePreset = "") {
     const programs = programsForDate(date);
+    const selectedService = normalizeServiceName(servicePreset || SERVICE_CALENDARS[0].service);
+    const closed = isClosedDate(date);
+    const customClosed = isCustomClosed(date);
+    const canToggleClosed = !isSundayDate(date) && !holidayName(date);
 
     modalRoot.innerHTML = `
       <div class="modal-backdrop" role="presentation">
@@ -923,8 +1627,18 @@
             <button class="icon-button" data-close-modal type="button" aria-label="닫기">×</button>
           </div>
           <div class="modal-body">
-            <form id="program-form" class="field-grid three">
+            ${
+              canToggleClosed
+                ? `<div class="notice modal-notice">
+                    <span>${customClosed ? "이 날짜는 휴무로 지정되어 있습니다." : "필요하면 이 날짜를 휴무로 지정할 수 있습니다."}</span>
+                    <button class="ghost-button" data-toggle-closed-date="${h(date)}" type="button">${customClosed ? "휴무 취소" : "휴무 지정"}</button>
+                  </div>`
+                : ""
+            }
+            ${closed ? `<p class="notice">휴무일에는 프로그램을 추가하지 않습니다. 휴무를 취소하면 다시 추가할 수 있습니다.</p>` : ""}
+            <form id="program-form" class="field-grid three" ${closed ? "hidden" : ""}>
               <input name="date" type="hidden" value="${h(date)}" />
+              <input name="service" type="hidden" value="${h(selectedService)}" />
               <label class="field">
                 <span>카테고리</span>
                 <select name="category" required>
@@ -946,32 +1660,6 @@
                 <span>차시</span>
                 <input name="session" type="number" min="1" max="99" value="1" required />
               </label>
-              <label class="field">
-                <span>서비스</span>
-                <select name="service">
-                  ${state.serviceLabels.map((label) => `<option value="${h(label)}">${h(label)}</option>`).join("")}
-                </select>
-              </label>
-              <label class="field">
-                <span>시간</span>
-                <input name="time" type="time" />
-              </label>
-              <label class="field">
-                <span>담당자</span>
-                <select name="teacher">
-                  ${["", ...state.settings.teachers]
-                    .map((teacher) => `<option value="${h(teacher)}">${h(teacher || "선택 안 함")}</option>`)
-                    .join("")}
-                </select>
-              </label>
-              <label class="field">
-                <span>장소</span>
-                <select name="room">
-                  ${["", ...state.settings.rooms]
-                    .map((room) => `<option value="${h(room)}">${h(room || "선택 안 함")}</option>`)
-                    .join("")}
-                </select>
-              </label>
               <div class="field">
                 <span>&nbsp;</span>
                 <button class="primary-button" type="submit">프로그램 추가</button>
@@ -990,8 +1678,7 @@
                           (program) => `
                             <article class="list-item">
                               <strong>${h(program.major)}${program.topic ? ` · ${h(program.topic)}` : ""}</strong>
-                              <small>${h(categoryName(program.category))} / ${h(program.session)}차시 / ${h(program.service)} / ${h(program.time || "시간 미정")}</small>
-                              <span>${h(program.teacher || "담당자 미정")} · ${h(program.room || "장소 미정")}</span>
+                              <small>${h(categoryName(program.category))} / ${h(program.session)}차시</small>
                               <div>
                                 <button class="danger-button" data-delete-program="${h(program.id)}" data-program-date="${h(date)}" type="button">삭제</button>
                               </div>
@@ -1020,33 +1707,29 @@
             <button class="icon-button" data-close-modal type="button" aria-label="닫기">×</button>
           </div>
           <div class="modal-body">
-            <form id="move-form" class="field-grid three">
+            <form id="move-form" class="field-grid">
               <input name="date" type="hidden" value="${h(date)}" />
               <label class="field">
                 <span>구분</span>
                 <select name="type" required>
-                  <option>송영</option>
-                  <option>휴가</option>
-                  <option>외출</option>
-                  <option>결석</option>
-                  <option>보호자 동행</option>
+                  ${MOVE_TYPES.map((type) => `<option value="${h(type.label)}">${h(type.label)}</option>`).join("")}
                 </select>
               </label>
-              <label class="field">
-                <span>대상</span>
-                <input name="person" list="people-options" placeholder="담당자 또는 이용인" required />
-                <datalist id="people-options">
-                  ${[...state.settings.teachers, ...state.settings.users].filter(unique).map((person) => `<option value="${h(person)}"></option>`).join("")}
-                </datalist>
-              </label>
-              <label class="field">
-                <span>시간</span>
-                <input name="time" placeholder="등원, 하원, 오전, 종일 등" />
-              </label>
-              <label class="field">
-                <span>차량·노선</span>
-                <input name="route" placeholder="차량명 또는 노선" />
-              </label>
+              <div class="field teacher-picker-field">
+                <span>담당교사</span>
+                <div class="teacher-picker">
+                  ${state.settings.teachers
+                    .map(
+                      (teacher) => `
+                        <label class="check-row">
+                          <input name="persons" type="checkbox" value="${h(teacher)}" />
+                          <span>${teacherBadge(teacher)}</span>
+                        </label>
+                      `
+                    )
+                    .join("")}
+                </div>
+              </div>
               <label class="field full">
                 <span>메모</span>
                 <input name="memo" placeholder="전달사항" />
@@ -1067,8 +1750,7 @@
                         .map(
                           (item) => `
                             <article class="list-item">
-                              <strong>${h(item.type)} · ${h(item.person)}</strong>
-                              <small>${h(item.time || "시간 미정")} ${item.route ? `/ ${h(item.route)}` : ""}</small>
+                              <strong>${h(item.type)} · ${teacherBadge(item.person, item.person)}</strong>
                               ${item.memo ? `<span>${h(item.memo)}</span>` : ""}
                               <div>
                                 <button class="danger-button" data-delete-move="${h(item.id)}" data-move-date="${h(date)}" type="button">삭제</button>
@@ -1122,6 +1804,7 @@
             <button class="icon-button" data-close-modal type="button" aria-label="닫기">×</button>
           </div>
           <div class="modal-body">
+            <p class="notice">현재 저장 방식: ${shared.available ? "공동저장" : "로컬 저장"}${shared.available ? " · 다른 기기와 함께 봅니다." : " · 이 기기 안에 저장됩니다."}</p>
             <div class="admin-grid">
               ${adminAction("refresh", "공동저장 새로고침", "다른 기기에서 저장한 내용을 즉시 불러옵니다.")}
               ${adminAction("download", "백업 저장", "현재 데이터를 JSON 파일로 내려받습니다.")}
@@ -1154,9 +1837,9 @@
       topic: String(data.get("topic") || "").trim(),
       session: Number(data.get("session") || 1),
       service: data.get("service"),
-      time: data.get("time"),
-      teacher: data.get("teacher"),
-      room: data.get("room")
+      time: "",
+      teacher: "",
+      room: ""
     });
 
     if (program.major && !state.majorThemes.includes(program.major)) {
@@ -1171,19 +1854,33 @@
 
   function handleMoveSubmit(form) {
     const data = new FormData(form);
-    const entry = normalizeMove({
-      date: data.get("date"),
-      type: data.get("type"),
-      person: String(data.get("person") || "").trim(),
-      time: String(data.get("time") || "").trim(),
-      route: String(data.get("route") || "").trim(),
-      memo: String(data.get("memo") || "").trim()
-    });
+    const date = String(data.get("date") || todayIso);
+    const people = data
+      .getAll("persons")
+      .map(cleanSelectValue)
+      .filter(Boolean)
+      .filter(unique);
 
-    state.vacationTransport.push(entry);
+    if (!people.length) {
+      setSyncStatus("담당교사를 선택해주세요.");
+      return;
+    }
+
+    const entries = people.map((person) =>
+      normalizeMove({
+        date,
+        type: data.get("type"),
+        person,
+        time: "",
+        route: "",
+        memo: String(data.get("memo") || "").trim()
+      })
+    );
+
+    state.vacationTransport.push(...entries);
     saveState("휴가·송영 항목이 추가되었습니다.");
     render();
-    openMoveModal(entry.date);
+    openMoveModal(date);
   }
 
   function handleObservationSubmit(form) {
@@ -1204,14 +1901,221 @@
   function handleSettingsSubmit(form) {
     const data = new FormData(form);
     state.serviceLabels = splitLines(data.get("serviceLabels"));
-    state.settings.teachers = splitLines(data.get("teachers"));
-    state.settings.users = splitLines(data.get("users"));
     state.settings.rooms = splitLines(data.get("rooms"));
     state.settings.timeSlots = splitLines(data.get("timeSlots"));
     state.majorThemes = splitLines(data.get("majorThemes"));
     state.settings.adminPin = String(data.get("adminPin") || "0000");
     saveState("기본 설정이 저장되었습니다.");
     render();
+  }
+
+  function addUser(form) {
+    const groupKey = form.dataset.userGroup;
+    const name = cleanSelectValue(new FormData(form).get("name"));
+    if (!name) return;
+
+    syncUsersFromGroups();
+    if (!state.settings.userGroups[groupKey]) return;
+
+    if (flattenUserGroups().includes(name)) {
+      setSyncStatus("이미 등록된 이용인입니다.");
+      return;
+    }
+
+    state.settings.userGroups[groupKey].push(name);
+    syncUsersFromGroups();
+    saveState("이용인이 추가되었습니다.");
+    renderPeople();
+  }
+
+  function updateUser(button) {
+    const groupKey = button.dataset.userGroup;
+    const oldName = button.dataset.updateUser;
+    const input = button.closest(".person-row")?.querySelector("[data-user-edit]");
+    const newName = cleanSelectValue(input?.value);
+    if (!newName || !state.settings.userGroups[groupKey]) return;
+    if (newName === oldName) return;
+
+    const otherUsers = flattenUserGroups().filter((user) => user !== oldName);
+    if (otherUsers.includes(newName)) {
+      setSyncStatus("이미 등록된 이용인 이름입니다.");
+      input.value = oldName;
+      return;
+    }
+
+    state.settings.userGroups[groupKey] = state.settings.userGroups[groupKey].map((user) => (user === oldName ? newName : user));
+    replaceUserInRecords(oldName, newName);
+    syncUsersFromGroups();
+    saveState("이용인 이름이 수정되었습니다.");
+    renderPeople();
+  }
+
+  function deleteUser(button) {
+    const groupKey = button.dataset.userGroup;
+    const name = button.dataset.deleteUser;
+    if (!state.settings.userGroups[groupKey]) return;
+
+    state.settings.userGroups[groupKey] = state.settings.userGroups[groupKey].filter((user) => user !== name);
+    removeUserFromRecords(name);
+    syncUsersFromGroups();
+    saveState("이용인이 삭제되었습니다.");
+    renderPeople();
+  }
+
+  function addTeacher(form) {
+    const name = cleanSelectValue(new FormData(form).get("name"));
+    if (!name) return;
+
+    if (state.settings.teachers.includes(name)) {
+      setSyncStatus("이미 등록된 교사입니다.");
+      return;
+    }
+
+    state.settings.teachers.push(name);
+    state.settings.teacherColors[name] = TEACHER_COLOR_PALETTE[state.settings.teachers.length % TEACHER_COLOR_PALETTE.length];
+    saveState("교사가 추가되었습니다.");
+    renderPeople();
+  }
+
+  function updateTeacher(button) {
+    const oldName = button.dataset.updateTeacher;
+    const row = button.closest(".person-row");
+    const input = row?.querySelector("[data-teacher-edit]");
+    const colorInput = row?.querySelector("[data-teacher-color]");
+    const newName = cleanSelectValue(input?.value);
+    const nextColor = normalizeColor(colorInput?.value) || teacherColor(oldName);
+    if (!newName) return;
+
+    if (newName !== oldName && state.settings.teachers.includes(newName)) {
+      setSyncStatus("이미 등록된 교사 이름입니다.");
+      input.value = oldName;
+      return;
+    }
+
+    state.settings.teachers = state.settings.teachers.map((teacher) => (teacher === oldName ? newName : teacher));
+    delete state.settings.teacherColors[oldName];
+    state.settings.teacherColors[newName] = nextColor;
+    if (oldName !== newName) replaceTeacherInRecords(oldName, newName);
+    saveState("교사 이름이 수정되었습니다.");
+    renderPeople();
+  }
+
+  function deleteTeacher(name) {
+    state.settings.teachers = state.settings.teachers.filter((teacher) => teacher !== name);
+    delete state.settings.teacherColors[name];
+    removeTeacherFromRecords(name);
+    saveState("교사가 삭제되었습니다.");
+    renderPeople();
+  }
+
+  function toggleClosedDate(date) {
+    if (isSundayDate(date) || holidayName(date)) return;
+    const reopenModal = Boolean(modalRoot.innerHTML);
+    const servicePreset = modalRoot.querySelector('input[name="service"]')?.value || "";
+    state.closedDates = state.closedDates || [];
+
+    if (state.closedDates.includes(date)) {
+      state.closedDates = state.closedDates.filter((item) => item !== date);
+      saveState("휴무가 취소되었습니다.");
+    } else {
+      state.closedDates.push(date);
+      saveState("휴무가 지정되었습니다.");
+    }
+
+    render();
+    if (reopenModal) openProgramModal(date, servicePreset);
+  }
+
+  function replaceUserInRecords(oldName, newName) {
+    Object.values(state.dailySchedules || {}).forEach((daySchedule) => {
+      Object.values(daySchedule || {}).forEach((slotRecord) => {
+        if (!Array.isArray(slotRecord?.groups)) return;
+        slotRecord.groups.forEach((group) => {
+          group.users = normalizeUserList(group.users).map((user) => (user === oldName ? newName : user));
+        });
+      });
+    });
+
+    state.observations = state.observations.map((entry) => ({
+      ...entry,
+      user: entry.user === oldName ? newName : entry.user
+    }));
+  }
+
+  function removeUserFromRecords(name) {
+    Object.values(state.dailySchedules || {}).forEach((daySchedule) => {
+      Object.values(daySchedule || {}).forEach((slotRecord) => {
+        if (!Array.isArray(slotRecord?.groups)) return;
+        slotRecord.groups.forEach((group) => {
+          group.users = normalizeUserList(group.users).filter((user) => user !== name);
+        });
+      });
+    });
+
+    state.observations = state.observations.map((entry) => ({
+      ...entry,
+      user: entry.user === name ? "" : entry.user
+    }));
+  }
+
+  function replaceTeacherInRecords(oldName, newName) {
+    state.monthlyPrograms = state.monthlyPrograms.map((program) => ({
+      ...program,
+      teacher: program.teacher === oldName ? newName : program.teacher
+    }));
+
+    state.vacationTransport = state.vacationTransport.map((entry) => ({
+      ...entry,
+      person: entry.person === oldName ? newName : entry.person
+    }));
+
+    state.observations = state.observations.map((entry) => ({
+      ...entry,
+      teacher: entry.teacher === oldName ? newName : entry.teacher
+    }));
+
+    Object.values(state.dailySchedules || {}).forEach((daySchedule) => {
+      Object.values(daySchedule || {}).forEach((slotRecord) => {
+        if (!slotRecord || typeof slotRecord !== "object") return;
+        SUPPORT_FIELDS.forEach((field) => {
+          if (slotRecord[field] === oldName) slotRecord[field] = newName;
+        });
+        if (!Array.isArray(slotRecord.groups)) return;
+        slotRecord.groups.forEach((group) => {
+          if (group.teacher === oldName) group.teacher = newName;
+        });
+      });
+    });
+  }
+
+  function removeTeacherFromRecords(name) {
+    state.monthlyPrograms = state.monthlyPrograms.map((program) => ({
+      ...program,
+      teacher: program.teacher === name ? "" : program.teacher
+    }));
+
+    state.vacationTransport = state.vacationTransport.map((entry) => ({
+      ...entry,
+      person: entry.person === name ? "" : entry.person
+    }));
+
+    state.observations = state.observations.map((entry) => ({
+      ...entry,
+      teacher: entry.teacher === name ? "" : entry.teacher
+    }));
+
+    Object.values(state.dailySchedules || {}).forEach((daySchedule) => {
+      Object.values(daySchedule || {}).forEach((slotRecord) => {
+        if (!slotRecord || typeof slotRecord !== "object") return;
+        SUPPORT_FIELDS.forEach((field) => {
+          if (slotRecord[field] === name) slotRecord[field] = "";
+        });
+        if (!Array.isArray(slotRecord.groups)) return;
+        slotRecord.groups.forEach((group) => {
+          if (group.teacher === name) group.teacher = "";
+        });
+      });
+    });
   }
 
   function copyProgramsToSchedule() {
@@ -1224,18 +2128,182 @@
 
     programs.forEach((program, index) => {
       const slot = state.settings.timeSlots[index % state.settings.timeSlots.length];
-      const service = state.serviceLabels.includes(program.service) ? program.service : state.serviceLabels[0];
-      const key = scheduleKey(slot, service);
-      state.dailySchedules[dailyDate][key] = {
-        ...state.dailySchedules[dailyDate][key],
+      const slotRecord = getScheduleSlot(dailyDate, slot);
+      const targetGroup = slotRecord.groups.find((group) => !scheduleGroupHasContent(group)) || blankScheduleGroup();
+
+      if (!slotRecord.groups.includes(targetGroup)) {
+        slotRecord.groups.push(targetGroup);
+      }
+
+      Object.assign(targetGroup, {
         program: programOptionLabel(program),
         teacher: program.teacher,
         room: program.room
-      };
+      });
+
+      state.dailySchedules[dailyDate][slot] = sanitizeScheduleSlot(slotRecord, slot);
     });
 
     saveState("월간 프로그램을 시간표에 반영했습니다.");
     renderDaily();
+  }
+
+  function addScheduleGroup(slot) {
+    const slotRecord = getScheduleSlot(dailyDate, slot);
+    slotRecord.groups.push(blankScheduleGroup());
+    state.dailySchedules[dailyDate][slot] = sanitizeScheduleSlot(slotRecord, slot);
+    saveState("시간표 그룹이 추가되었습니다.");
+    renderDaily();
+  }
+
+  function removeScheduleGroup(slot, groupId) {
+    const slotRecord = getScheduleSlot(dailyDate, slot);
+    slotRecord.groups = slotRecord.groups.filter((group) => group.id !== groupId);
+    if (!slotRecord.groups.length) slotRecord.groups = [blankScheduleGroup()];
+    state.dailySchedules[dailyDate][slot] = sanitizeScheduleSlot(slotRecord, slot);
+    saveState("시간표 그룹이 삭제되었습니다.");
+    renderDaily();
+  }
+
+  function updateScheduleGroupField(target) {
+    const slot = target.dataset.slot;
+    const groupId = target.dataset.groupId;
+    const field = target.dataset.scheduleGroupField;
+    const group = findScheduleGroup(dailyDate, slot, groupId);
+
+    if (!group) return;
+    group[field] = target.value;
+    state.dailySchedules[dailyDate][slot] = sanitizeScheduleSlot(getScheduleSlot(dailyDate, slot), slot);
+    saveState("시간표가 저장되었습니다.");
+    renderDaily();
+  }
+
+  function updateScheduleUsers(target) {
+    const wrapper = target.closest("[data-schedule-group]");
+    if (!wrapper) return;
+
+    const group = findScheduleGroup(dailyDate, wrapper.dataset.slot, wrapper.dataset.groupId);
+    if (!group) return;
+
+    group.users = Array.from(wrapper.querySelectorAll("[data-schedule-user]:checked")).map((input) => input.value);
+    state.dailySchedules[dailyDate][wrapper.dataset.slot] = sanitizeScheduleSlot(getScheduleSlot(dailyDate, wrapper.dataset.slot), wrapper.dataset.slot);
+    saveState("시간표가 저장되었습니다.");
+    renderDaily();
+  }
+
+  function updateScheduleSupport(target) {
+    const slot = target.dataset.slot;
+    const field = target.dataset.scheduleSupportField;
+    const slotRecord = getScheduleSlot(dailyDate, slot);
+
+    slotRecord[field] = target.value;
+    state.dailySchedules[dailyDate][slot] = sanitizeScheduleSlot(slotRecord, slot);
+    saveState("시간표가 저장되었습니다.");
+    renderDaily();
+  }
+
+  function updateScheduleAftercare(target) {
+    const wrapper = target.closest("[data-aftercare-info]");
+    const field = target.dataset.aftercareField;
+    if (!wrapper || !field) return;
+
+    setAftercareInfo(dailyDate, {
+      ...getAftercareInfo(dailyDate),
+      [field]: target.value
+    });
+    saveState("방과후 전달사항이 저장되었습니다.");
+  }
+
+  function addAftercareItem(button) {
+    const wrapper = button.closest("[data-aftercare-info]");
+    if (!wrapper) return;
+
+    const type = cleanSelectValue(wrapper.querySelector('[data-aftercare-draft="type"]')?.value) || "결석";
+    const user = cleanSelectValue(wrapper.querySelector('[data-aftercare-draft="user"]')?.value);
+    const time = type === "결석" ? "" : cleanSelectValue(wrapper.querySelector('[data-aftercare-draft="time"]')?.value);
+
+    if (!user) {
+      setSyncStatus("이용인을 선택해주세요.");
+      return;
+    }
+
+    if (type !== "결석" && !time) {
+      setSyncStatus("시간을 선택해주세요.");
+      return;
+    }
+
+    const info = getAftercareInfo(dailyDate);
+    info.items.push({
+      id: uid("aftercare"),
+      type,
+      user,
+      time
+    });
+    setAftercareInfo(dailyDate, info);
+    saveState("등하원 정보가 추가되었습니다.");
+    renderDaily();
+  }
+
+  function updateAftercareDraftType(target) {
+    const wrapper = target.closest("[data-aftercare-info]");
+    const timeSelect = wrapper?.querySelector('[data-aftercare-draft="time"]');
+    if (!timeSelect) return;
+
+    const needsTime = target.value !== "결석";
+    timeSelect.disabled = !needsTime;
+    if (!needsTime) timeSelect.value = "";
+  }
+
+  function removeAftercareItem(itemId) {
+    const info = getAftercareInfo(dailyDate);
+    info.items = info.items.filter((item) => item.id !== itemId);
+    setAftercareInfo(dailyDate, info);
+    saveState("등하원 정보가 삭제되었습니다.");
+    renderDaily();
+  }
+
+  function findScheduleGroup(date, slot, groupId) {
+    const slotRecord = getScheduleSlot(date, slot);
+    return slotRecord.groups.find((group) => group.id === groupId);
+  }
+
+  function printSchedule() {
+    document.body.classList.add("printing-schedule");
+    window.setTimeout(() => {
+      window.print();
+      window.setTimeout(() => document.body.classList.remove("printing-schedule"), 300);
+    }, 0);
+  }
+
+  function printMonthly() {
+    document.body.classList.add("printing-monthly");
+    window.setTimeout(() => {
+      window.print();
+      window.setTimeout(() => document.body.classList.remove("printing-monthly"), 300);
+    }, 0);
+  }
+
+  function printTransport() {
+    document.body.classList.add("printing-transport");
+    window.setTimeout(() => {
+      window.print();
+      window.setTimeout(() => document.body.classList.remove("printing-transport"), 300);
+    }, 0);
+  }
+
+  function printObservations() {
+    const checkedIds = Array.from(document.querySelectorAll("[data-observation-print-select]:checked")).map((input) => input.value);
+    const printItems = Array.from(document.querySelectorAll("[data-observation-print-item]"));
+
+    printItems.forEach((item) => {
+      item.classList.toggle("print-selected", !checkedIds.length || checkedIds.includes(item.dataset.observationPrintItem));
+    });
+
+    document.body.classList.add("printing-observations");
+    window.setTimeout(() => {
+      window.print();
+      window.setTimeout(() => document.body.classList.remove("printing-observations"), 300);
+    }, 0);
   }
 
   function downloadBackup() {
@@ -1286,12 +2354,27 @@
   function movesForDate(date) {
     return state.vacationTransport
       .filter((entry) => entry.date === date)
-      .sort((a, b) => `${a.time || ""}${a.person}`.localeCompare(`${b.time || ""}${b.person}`));
+      .sort((a, b) => {
+        const orderA = MOVE_TYPE_LABELS.indexOf(normalizeMoveType(a));
+        const orderB = MOVE_TYPE_LABELS.indexOf(normalizeMoveType(b));
+        return `${orderA < 0 ? 99 : orderA}${a.person}`.localeCompare(`${orderB < 0 ? 99 : orderB}${b.person}`);
+      });
   }
 
   function countFilledScheduleCells(date) {
     ensureDailySchedule(date);
-    return Object.values(state.dailySchedules[date]).filter((cell) => cell.program || cell.teacher || cell.room || cell.users || cell.memo).length;
+    let aftercareCounted = false;
+    return state.settings.timeSlots.reduce((total, slot) => {
+      const slotRecord = getScheduleSlot(date, slot);
+      const filledGroups = slotRecord.groups.filter(scheduleGroupHasContent).length;
+      let filledExtra = SUPPORT_FIELDS.filter((field) => slotRecord[field]).length;
+      if (isAftercareSlot(slot)) {
+        const afterInfo = getAftercareInfo(date);
+        filledExtra = aftercareCounted ? 0 : afterInfo.items.length + (afterInfo.memo ? 1 : 0);
+        aftercareCounted = true;
+      }
+      return total + filledGroups + filledExtra;
+    }, 0);
   }
 
   function ensureDailySchedule(date) {
@@ -1299,19 +2382,324 @@
     if (!state.dailySchedules[date]) state.dailySchedules[date] = {};
 
     state.settings.timeSlots.forEach((slot) => {
-      state.serviceLabels.forEach((service) => {
-        const key = scheduleKey(slot, service);
-        if (!state.dailySchedules[date][key]) {
-          state.dailySchedules[date][key] = {
-            program: "",
-            teacher: "",
-            room: "",
-            users: "",
-            memo: ""
-          };
-        }
-      });
+      const slotRecord = normalizeScheduleSlot(state.dailySchedules[date][slot]);
+      const legacyGroups = legacyScheduleGroups(date, slot);
+
+      if (legacyGroups.length && !slotRecord.groups.some(scheduleGroupHasContent)) {
+        slotRecord.groups = legacyGroups;
+      }
+
+      if (!slotRecord.groups.length) slotRecord.groups = [blankScheduleGroup()];
+      state.dailySchedules[date][slot] = sanitizeScheduleSlot(slotRecord, slot);
     });
+  }
+
+  function getScheduleSlot(date, slot) {
+    ensureDailySchedule(date);
+    return state.dailySchedules[date][slot];
+  }
+
+  function normalizeScheduleSlot(input) {
+    const slotRecord = {
+      groups: [],
+      rest: "",
+      docs: "",
+      desk: "",
+      afterInfo: normalizeAfterInfo()
+    };
+
+    if (!input || typeof input !== "object") return slotRecord;
+
+    slotRecord.rest = cleanSelectValue(input.rest);
+    slotRecord.docs = cleanSelectValue(input.docs);
+    slotRecord.desk = cleanSelectValue(input.desk);
+    slotRecord.afterInfo = normalizeAfterInfo(input.afterInfo);
+
+    if (Array.isArray(input.groups)) {
+      slotRecord.groups = input.groups.map(normalizeScheduleGroup);
+    } else if (scheduleGroupHasContent(input)) {
+      slotRecord.groups = [normalizeScheduleGroup(input)];
+    }
+
+    return slotRecord;
+  }
+
+  function normalizeScheduleGroup(input = {}) {
+    return {
+      id: input.id || uid("group"),
+      program: cleanSelectValue(input.program),
+      room: cleanSelectValue(input.room),
+      teacher: cleanSelectValue(input.teacher),
+      users: normalizeUserList(input.users)
+    };
+  }
+
+  function normalizeAfterInfo(input = {}) {
+    input = input && typeof input === "object" ? input : {};
+    const items = Array.isArray(input.items) ? input.items.map(normalizeAftercareItem).filter((item) => item.user) : [];
+
+    if (!items.length) {
+      cleanSelectValue(input.absent)
+        .split(/[,/|\n]+/)
+        .map(cleanSelectValue)
+        .filter(Boolean)
+        .forEach((user) => {
+          items.push(normalizeAftercareItem({ type: "결석", user }));
+        });
+
+      const arrival = cleanSelectValue(input.arrival);
+      if (arrival) items.push(normalizeAftercareItem({ type: "등원", user: arrival.replace(/\d{1,2}:\d{2}/, "").trim() || arrival, time: extractTimeValue(arrival) }));
+
+      const departure = cleanSelectValue(input.departure);
+      if (departure) items.push(normalizeAftercareItem({ type: "하원", user: departure.replace(/\d{1,2}:\d{2}/, "").trim() || departure, time: extractTimeValue(departure) }));
+    }
+
+    return {
+      items: items.filter((item, index, array) => array.findIndex((target) => target.type === item.type && target.user === item.user && target.time === item.time) === index),
+      memo: cleanSelectValue(input.memo)
+    };
+  }
+
+  function normalizeAftercareItem(input = {}) {
+    const type = AFTERCARE_INFO_TYPES.includes(cleanSelectValue(input.type)) ? cleanSelectValue(input.type) : "결석";
+    return {
+      id: input.id || uid("aftercare"),
+      type,
+      user: cleanSelectValue(input.user || input.person),
+      time: type === "결석" ? "" : cleanSelectValue(input.time)
+    };
+  }
+
+  function legacyScheduleGroups(date, slot) {
+    return state.serviceLabels
+      .map((service) => state.dailySchedules[date][scheduleKey(slot, service)])
+      .filter(scheduleGroupHasContent)
+      .map(normalizeScheduleGroup);
+  }
+
+  function blankScheduleGroup() {
+    return {
+      id: uid("group"),
+      program: "",
+      room: "",
+      teacher: "",
+      users: []
+    };
+  }
+
+  function sanitizeScheduleSlot(slotRecord, slot = "") {
+    const usedUsers = new Set();
+    const usedTeachers = new Set();
+    const allowedUsers = new Set(slot ? allowedUsersForSlot(slot) : flattenUserGroups());
+    const aftercare = isAftercareSlot(slot);
+
+    slotRecord.groups = slotRecord.groups.map((group) => {
+      const normalized = normalizeScheduleGroup(group);
+
+      normalized.users = normalized.users.filter((user) => {
+        if (allowedUsers.size && !allowedUsers.has(user)) return false;
+        if (usedUsers.has(user)) return false;
+        usedUsers.add(user);
+        return true;
+      });
+
+      if (normalized.teacher && usedTeachers.has(normalized.teacher)) {
+        normalized.teacher = "";
+      }
+
+      if (normalized.teacher) usedTeachers.add(normalized.teacher);
+      return normalized;
+    });
+
+    slotRecord.afterInfo = normalizeAfterInfo(slotRecord.afterInfo);
+
+    if (aftercare) {
+      SUPPORT_FIELDS.forEach((field) => {
+        slotRecord[field] = "";
+      });
+      if (!slotRecord.groups.length) slotRecord.groups = [blankScheduleGroup()];
+      return slotRecord;
+    }
+
+    const supportUsed = new Set();
+    SUPPORT_FIELDS.forEach((field) => {
+      const value = cleanSelectValue(slotRecord[field]);
+      if (!value || usedTeachers.has(value) || supportUsed.has(value)) {
+        slotRecord[field] = "";
+        return;
+      }
+
+      slotRecord[field] = value;
+      supportUsed.add(value);
+    });
+
+    if (!slotRecord.groups.length) slotRecord.groups = [blankScheduleGroup()];
+    return slotRecord;
+  }
+
+  function scheduleGroupHasContent(group = {}) {
+    return Boolean(
+      group.program ||
+        group.teacher ||
+        group.room ||
+        group.rest ||
+        group.docs ||
+        group.desk ||
+        (Array.isArray(group.users) ? group.users.length : String(group.users || "").trim()) ||
+        group.memo
+    );
+  }
+
+  function supportValues(slotRecord) {
+    return SUPPORT_FIELDS.map((field) => slotRecord[field]).filter(Boolean);
+  }
+
+  function normalizeUserList(value) {
+    if (Array.isArray(value)) {
+      return value.map(cleanSelectValue).filter(Boolean).filter(unique);
+    }
+
+    return String(value || "")
+      .split(/[,/|\n]+/)
+      .map(cleanSelectValue)
+      .filter(Boolean)
+      .filter(unique);
+  }
+
+  function cleanSelectValue(value) {
+    return String(value || "").trim();
+  }
+
+  function holidayName(date) {
+    return KOREA_HOLIDAYS_2026[date] || "";
+  }
+
+  function isSundayDate(date) {
+    return parseIsoDate(date).getDay() === 0;
+  }
+
+  function isCustomClosed(date) {
+    return (state.closedDates || []).includes(date);
+  }
+
+  function isClosedDate(date) {
+    return isSundayDate(date) || Boolean(holidayName(date)) || isCustomClosed(date);
+  }
+
+  function closedDateLabel(date) {
+    if (holidayName(date)) return holidayName(date);
+    if (isSundayDate(date)) return "휴무";
+    if (isCustomClosed(date)) return "휴무";
+    return "";
+  }
+
+  function allowedUserGroupsForSlot(slot) {
+    const start = slotStartMinutes(slot);
+    if (start >= 16 * 60) return ["afterMonTueThuSat", "afterWedFriSat"];
+    return ["day"];
+  }
+
+  function isAftercareSlot(slot) {
+    return slotStartMinutes(slot) >= 16 * 60;
+  }
+
+  function firstAftercareSlot() {
+    return (state.settings.timeSlots || []).find(isAftercareSlot) || "";
+  }
+
+  function aftercareEditorRowSpan(date) {
+    ensureDailySchedule(date);
+    return (state.settings.timeSlots || [])
+      .filter(isAftercareSlot)
+      .reduce((total, slot) => total + Math.max(1, getScheduleSlot(date, slot).groups.length), 0);
+  }
+
+  function getAftercareInfo(date) {
+    const slot = firstAftercareSlot();
+    if (!slot) return normalizeAfterInfo();
+    return normalizeAfterInfo(getScheduleSlot(date, slot).afterInfo);
+  }
+
+  function setAftercareInfo(date, info) {
+    const normalized = normalizeAfterInfo(info);
+    (state.settings.timeSlots || []).filter(isAftercareSlot).forEach((slot) => {
+      const slotRecord = getScheduleSlot(date, slot);
+      slotRecord.afterInfo = normalized;
+      state.dailySchedules[date][slot] = sanitizeScheduleSlot(slotRecord, slot);
+    });
+  }
+
+  function allowedUsersForSlot(slot) {
+    return allowedUserGroupsForSlot(slot).flatMap((key) => state.settings.userGroups?.[key] || []).filter(unique);
+  }
+
+  function slotStartMinutes(slot) {
+    const [hour, minute] = String(slot || "00:00").split("~")[0].split(":").map(Number);
+    return (Number.isFinite(hour) ? hour : 0) * 60 + (Number.isFinite(minute) ? minute : 0);
+  }
+
+  function aftercareTimeOptions() {
+    const options = [];
+    const start = 16 * 60;
+    const end = 18 * 60 + 40;
+    for (let minutes = start; minutes <= end; minutes += 10) {
+      options.push(formatMinutesAsTime(minutes));
+    }
+    return options;
+  }
+
+  function formatMinutesAsTime(minutes) {
+    const hour = Math.floor(minutes / 60);
+    const minute = minutes % 60;
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  }
+
+  function extractTimeValue(value) {
+    return String(value || "").match(/\d{1,2}:\d{2}/)?.[0] || "";
+  }
+
+  function teacherColor(name) {
+    const teacher = cleanSelectValue(name);
+    return state.settings.teacherColors?.[teacher] || "#4b5563";
+  }
+
+  function teacherBadge(name, fallback = "담당자 미정") {
+    const teacher = cleanSelectValue(name);
+    if (!teacher) return h(fallback);
+    if (!state.settings.teachers.includes(teacher)) return h(teacher);
+    return `<span class="teacher-name" style="--teacher-color: ${h(teacherColor(teacher))}">${h(teacher)}</span>`;
+  }
+
+  function programOptionsForDate(date) {
+    return ["", ...programsForDate(date).map(programOptionLabel), ...CORE_PROGRAM_OPTIONS].filter(unique);
+  }
+
+  function scheduleRangeLabel() {
+    const slots = state.settings.timeSlots || [];
+    if (!slots.length) return "시간 미정";
+    const first = slots[0].split("~")[0] || slots[0];
+    const lastSlot = slots[slots.length - 1];
+    const last = lastSlot.split("~")[1] || lastSlot;
+    return `${first} ~ ${last}`;
+  }
+
+  function dayScheduleRangeLabel() {
+    const slots = state.settings.timeSlots || [];
+    const first = slots[0]?.split("~")[0] || "09:00";
+    return `${first} ~ 16:00`;
+  }
+
+  function aftercareScheduleRangeLabel() {
+    const slots = state.settings.timeSlots || [];
+    const afterSlots = slots.filter(isAftercareSlot);
+    const first = afterSlots[0]?.split("~")[0] || "16:00";
+    const lastSlot = afterSlots[afterSlots.length - 1] || "18:40";
+    const last = lastSlot.split("~")[1] || lastSlot;
+    return `${first} ~ ${last}`;
+  }
+
+  function formatSlotLabel(slot) {
+    return h(slot).replace("~", "<br />~<br />");
   }
 
   function scheduleKey(slot, service) {
@@ -1323,7 +2711,7 @@
   }
 
   function shortProgramLabel(program) {
-    return `${program.time ? `${program.time} ` : ""}${program.major}${program.session ? ` ${program.session}차` : ""}`;
+    return `${program.major}${program.topic ? ` · ${program.topic}` : ""}${program.session ? ` ${program.session}차` : ""}`;
   }
 
   function shortMoveLabel(item) {
@@ -1452,9 +2840,15 @@
       return;
     }
 
+    const closedToggle = event.target.closest("[data-toggle-closed-date]");
+    if (closedToggle) {
+      toggleClosedDate(closedToggle.dataset.toggleClosedDate);
+      return;
+    }
+
     const programDay = event.target.closest("[data-open-program-date]");
     if (programDay) {
-      openProgramModal(programDay.dataset.openProgramDate);
+      openProgramModal(programDay.dataset.openProgramDate, programDay.dataset.programService);
       return;
     }
 
@@ -1469,6 +2863,52 @@
       return;
     }
 
+    const addGroupButton = event.target.closest("[data-add-schedule-group]");
+    if (addGroupButton) {
+      addScheduleGroup(addGroupButton.dataset.addScheduleGroup);
+      return;
+    }
+
+    const removeGroupButton = event.target.closest("[data-remove-schedule-group]");
+    if (removeGroupButton) {
+      const ok = window.confirm("이 시간표 그룹을 삭제할까요?");
+      if (!ok) return;
+      removeScheduleGroup(removeGroupButton.dataset.slot, removeGroupButton.dataset.removeScheduleGroup);
+      return;
+    }
+
+    if (event.target.closest("[data-print-schedule]")) {
+      printSchedule();
+      return;
+    }
+
+    if (event.target.closest("[data-print-monthly]")) {
+      printMonthly();
+      return;
+    }
+
+    if (event.target.closest("[data-print-transport]")) {
+      printTransport();
+      return;
+    }
+
+    if (event.target.closest("[data-print-observations]")) {
+      printObservations();
+      return;
+    }
+
+    const addAftercareButton = event.target.closest("[data-add-aftercare-item]");
+    if (addAftercareButton) {
+      addAftercareItem(addAftercareButton);
+      return;
+    }
+
+    const removeAftercareButton = event.target.closest("[data-remove-aftercare-item]");
+    if (removeAftercareButton) {
+      removeAftercareItem(removeAftercareButton.dataset.removeAftercareItem);
+      return;
+    }
+
     if (event.target.closest("[data-close-modal]")) {
       closeModal();
       return;
@@ -1476,6 +2916,34 @@
 
     if (event.target.closest("[data-open-admin-from-settings]")) {
       openAdminModal();
+      return;
+    }
+
+    const updateUserButton = event.target.closest("[data-update-user]");
+    if (updateUserButton) {
+      updateUser(updateUserButton);
+      return;
+    }
+
+    const deleteUserButton = event.target.closest("[data-delete-user]");
+    if (deleteUserButton) {
+      const ok = window.confirm("이 이용인을 삭제할까요? 시간표와 기록의 해당 이름도 함께 정리됩니다.");
+      if (!ok) return;
+      deleteUser(deleteUserButton);
+      return;
+    }
+
+    const updateTeacherButton = event.target.closest("[data-update-teacher]");
+    if (updateTeacherButton) {
+      updateTeacher(updateTeacherButton);
+      return;
+    }
+
+    const deleteTeacherButton = event.target.closest("[data-delete-teacher]");
+    if (deleteTeacherButton) {
+      const ok = window.confirm("이 교사를 삭제할까요? 시간표와 기록의 해당 이름도 함께 정리됩니다.");
+      if (!ok) return;
+      deleteTeacher(deleteTeacherButton.dataset.deleteTeacher);
       return;
     }
 
@@ -1537,6 +3005,8 @@
     if (form.id === "move-form") handleMoveSubmit(form);
     if (form.id === "observation-form") handleObservationSubmit(form);
     if (form.id === "settings-form") handleSettingsSubmit(form);
+    if (form.matches("[data-add-user-form]")) addUser(form);
+    if (form.matches("[data-add-teacher-form]")) addTeacher(form);
     if (form.id === "admin-login-form") {
       const pin = new FormData(form).get("pin");
       if (String(pin) === String(state.settings.adminPin || "0000")) {
@@ -1559,12 +3029,28 @@
       return;
     }
 
-    if (target.matches("[data-schedule-field]")) {
-      ensureDailySchedule(dailyDate);
-      const cell = target.closest(".schedule-cell");
-      const key = scheduleKey(cell.dataset.slot, cell.dataset.service);
-      state.dailySchedules[dailyDate][key][target.dataset.scheduleField] = target.value;
-      saveState("시간표가 저장되었습니다.");
+    if (target.matches("[data-schedule-group-field]")) {
+      updateScheduleGroupField(target);
+      return;
+    }
+
+    if (target.matches("[data-schedule-user]")) {
+      updateScheduleUsers(target);
+      return;
+    }
+
+    if (target.matches("[data-schedule-support-field]")) {
+      updateScheduleSupport(target);
+      return;
+    }
+
+    if (target.matches('[data-aftercare-draft="type"]')) {
+      updateAftercareDraftType(target);
+      return;
+    }
+
+    if (target.matches("[data-aftercare-field]")) {
+      updateScheduleAftercare(target);
       return;
     }
   });
@@ -1572,9 +3058,15 @@
   document.addEventListener("input", (event) => {
     const target = event.target;
 
+    if (target.matches("[data-aftercare-field]")) {
+      updateScheduleAftercare(target);
+      return;
+    }
+
     if (!target.matches("[data-schedule-field]")) return;
     ensureDailySchedule(dailyDate);
     const cell = target.closest(".schedule-cell");
+    if (!cell) return;
     const key = scheduleKey(cell.dataset.slot, cell.dataset.service);
     state.dailySchedules[dailyDate][key][target.dataset.scheduleField] = target.value;
     saveState("시간표가 저장되었습니다.");
