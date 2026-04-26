@@ -303,6 +303,74 @@ button {
   background: linear-gradient(180deg, #fff, var(--green-soft));
 }
 
+.today-teacher-summary {
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  overflow: hidden;
+}
+
+.teacher-work-buttons {
+  padding: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.teacher-work-button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.teacher-work-button.active {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+.teacher-work-detail {
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.teacher-work-list {
+  display: grid;
+  gap: 6px;
+}
+
+.teacher-work-item {
+  display: grid;
+  grid-template-columns: 112px 72px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.work-time,
+.work-kind {
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.work-kind {
+  text-align: center;
+}
+
+.work-detail {
+  color: var(--muted);
+}
+
 .toolbar-row {
   margin-bottom: 14px;
   display: flex;
@@ -1103,14 +1171,29 @@ button {
 
 .teacher-report-field {
   display: grid;
-  grid-template-columns: 86px minmax(0, 1fr);
+  grid-template-columns: 128px minmax(0, 1fr);
   gap: 8px;
   align-items: start;
 }
 
-.teacher-report-field span {
+.teacher-report-name {
   padding-top: 7px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
   font-weight: 800;
+}
+
+.teacher-report-remove {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #f0b8b2;
+  border-radius: 5px;
+  background: #fff5f3;
+  color: #9b2c1f;
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .teacher-report-field textarea {
@@ -1122,6 +1205,13 @@ button {
   background: #fff;
   color: var(--ink);
   resize: vertical;
+}
+
+.teacher-report-hidden {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .teacher-report-print {
@@ -1144,8 +1234,8 @@ button {
   text-align: center;
 }
 
-.teacher-report-print td:first-child {
-  width: 24%;
+.teacher-report-print .report-teacher-name {
+  width: 18%;
   font-weight: 800;
   text-align: center;
 }
@@ -1653,6 +1743,10 @@ button {
   .stats-summary-grid {
     grid-template-columns: 1fr;
   }
+
+  .teacher-work-item {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 820px) {
@@ -1749,6 +1843,7 @@ button {
   body.printing-schedule .page-header,
   body.printing-schedule .toolbar-row,
   body.printing-schedule .daily-editor-section,
+  body.printing-schedule .today-teacher-summary,
   body.printing-schedule .dashboard-grid > .panel:not(.schedule-print-panel),
   body.printing-schedule .schedule-print-panel .panel-head {
     display: none !important;
@@ -1816,6 +1911,10 @@ button {
   body.printing-schedule .teacher-report-print th,
   body.printing-schedule .teacher-report-print td {
     padding: 1.2mm 1.4mm;
+  }
+
+  body.printing-schedule .teacher-report-print .report-teacher-name {
+    width: 16%;
   }
 
   body.printing-monthly,

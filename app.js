@@ -5,6 +5,7 @@
   const CLIENT_ID_KEY = "songjeong-client-id";
   const SHARED_DATA_URL = "/.netlify/functions/shared-data";
   const SYNC_INTERVAL_MS = 10000;
+  const REPORT_HIDDEN_KEY = "__hiddenTeachers";
   const KOREAN_DAYS = ["일", "월", "화", "수", "목", "금", "토"];
   const SUPPORT_FIELDS = ["rest", "docs", "desk"];
   const SUPPORT_LABELS = {
@@ -84,6 +85,7 @@
   let monthlyCursor = startOfMonth(parseIsoDate(todayIso));
   let vacationCursor = startOfMonth(parseIsoDate(todayIso));
   let dailyDate = todayIso;
+  let selectedTodayTeacher = "";
   let adminUnlocked = sessionStorage.getItem(ADMIN_SESSION_KEY) === "yes";
   let shared = {
     initialized: false,
@@ -1174,7 +1176,10 @@
 
   function renderTeacherReportEditor(date) {
     const reports = getTeacherReports(date);
-    const teachers = state.settings.teachers || [];
+    const teachers = reportTeachersForDate(date);
+    const hiddenTeachers = reportHiddenTeachers(date);
+    const vacationTeachers = vacationTeachersForDate(date);
+    const restorableTeachers = (state.settings.teachers || []).filter((teacher) => hiddenTeachers.has(teacher) && !vacationTeachers.has(teacher));
 
     return `
       <section class="teacher-report-editor">
@@ -1185,16 +1190,32 @@
               ? teachers
                   .map(
                     (teacher) => `
-                      <label class="teacher-report-field">
-                        <span>${teacherBadge(teacher, teacher)}</span>
+                      <div class="teacher-report-field">
+                        <div class="teacher-report-name">
+                          ${teacherBadge(teacher, teacher)}
+                          <button class="teacher-report-remove" data-hide-report-teacher="${h(teacher)}" type="button" aria-label="${h(teacher)} 보고 업무에서 제외">×</button>
+                        </div>
                         <textarea data-report-field="${h(teacher)}" rows="2" placeholder="보고 업무">${h(reports[teacher] || "")}</textarea>
-                      </label>
+                      </div>
                     `
                   )
                   .join("")
               : `<div class="empty compact">등록된 교사가 없습니다.</div>`
           }
         </div>
+        ${
+          restorableTeachers.length
+            ? `<div class="teacher-report-hidden">
+                ${restorableTeachers
+                  .map(
+                    (teacher) => `
+                      <button class="mini-button" data-show-report-teacher="${h(teacher)}" type="button">+ ${teacherBadge(teacher, teacher)}</button>
+                    `
+                  )
+                  .join("")}
+              </div>`
+            : ""
+        }
       </section>
     `;
   }
@@ -1686,7 +1707,95 @@
   function renderTodayScheduleSummary() {
     ensureDailySchedule(todayIso);
 
-    return `<div class="print-preview-wrap today-schedule-preview">${renderSchedulePrintSheet(todayIso)}</div>`;
+    return `
+      ${renderTodayTeacherSummary(todayIso)}
+      <div class="print-preview-wrap today-schedule-preview">${renderSchedulePrintSheet(todayIso)}</div>
+    `;
+  }
+
+  function renderTodayTeacherSummary(date) {
+    const teachers = workingTeachersForDate(date);
+    if (!teachers.length) return `<div class="empty compact">출근한 교사가 없습니다.</div>`;
+
+    if (!selectedTodayTeacher || !teachers.includes(selectedTodayTeacher)) {
+      selectedTodayTeacher = teachers[0];
+    }
+
+    const assignments = teacherAssignmentsForDate(date, selectedTodayTeacher);
+
+    return `
+      <section class="today-teacher-summary">
+        <div class="teacher-work-buttons" aria-label="출근 교사">
+          ${teachers
+            .map(
+              (teacher) => `
+                <button class="teacher-work-button ${teacher === selectedTodayTeacher ? "active" : ""}" data-select-today-teacher="${h(teacher)}" type="button">
+                  ${teacherBadge(teacher, teacher)}
+                </button>
+              `
+            )
+            .join("")}
+        </div>
+        <div class="teacher-work-detail">
+          <strong>${teacherBadge(selectedTodayTeacher, selectedTodayTeacher)} 배치 확인</strong>
+          ${
+            assignments.length
+              ? `<div class="teacher-work-list">
+                  ${assignments
+                    .map(
+                      (item) => `
+                        <div class="teacher-work-item">
+                          <span class="work-time">${h(formatSlotText(item.slot))}</span>
+                          <span class="work-kind">${h(item.kind)}</span>
+                          <span class="work-detail">${h(item.detail)}</span>
+                        </div>
+                      `
+                    )
+                    .join("")}
+                </div>`
+              : `<div class="empty compact">오늘 배정된 수업, 휴게, 서류, 데스크가 없습니다.</div>`
+          }
+        </div>
+      </section>
+    `;
+  }
+
+  function teacherAssignmentsForDate(date, teacher) {
+    ensureDailySchedule(date);
+    const rows = [];
+
+    state.settings.timeSlots.forEach((slot) => {
+      const slotRecord = getScheduleSlot(date, slot);
+
+      slotRecord.groups.forEach((group) => {
+        if (group.teacher !== teacher) return;
+        rows.push({
+          slot,
+          kind: "수업",
+          detail: [group.program || "프로그램 미입력", group.room, normalizeUserList(group.users).join(", ")]
+            .filter(Boolean)
+            .join(" / ")
+        });
+      });
+
+      if (!isAftercareSlot(slot)) {
+        SUPPORT_FIELDS.forEach((field) => {
+          if (slotRecord[field] !== teacher) return;
+          rows.push({
+            slot,
+            kind: SUPPORT_LABELS[field] || field,
+            detail: `${SUPPORT_LABELS[field] || field} 배정`
+          });
+        });
+      }
+    });
+
+    return rows;
+  }
+
+  function workingTeachersForDate(date) {
+    const vacationTeachers = vacationTeachersForDate(date);
+    return (state.settings.teachers || []).filter((teacher) => !vacationTeachers.has(teacher));
   }
 
   function renderSchedulePrintSheet(date) {
@@ -1793,21 +1902,26 @@
 
   function renderTeacherReportPrint(date) {
     const reports = getTeacherReports(date);
-    const teachers = state.settings.teachers || [];
+    const teachers = reportTeachersForDate(date);
     if (!teachers.length) return "";
+    const pairs = [];
+    for (let index = 0; index < teachers.length; index += 2) {
+      pairs.push([teachers[index], teachers[index + 1] || ""]);
+    }
 
     return `
       <table class="teacher-report-print">
         <tbody>
           <tr>
-            <th colspan="2">■ 교사별 업무 보고</th>
+            <th colspan="4">■ 교사별 업무 보고</th>
           </tr>
-          ${teachers
+          ${pairs
             .map(
-              (teacher) => `
+              ([left, right]) => `
                 <tr>
-                  <td>${teacherBadge(teacher, teacher)}</td>
-                  <td>${h(reports[teacher] || "-")}</td>
+                  <td class="report-teacher-name">${teacherBadge(left, left)}</td>
+                  <td>${h(reports[left] || "-")}</td>
+                  ${right ? `<td class="report-teacher-name">${teacherBadge(right, right)}</td><td>${h(reports[right] || "-")}</td>` : `<td class="report-teacher-name"></td><td></td>`}
                 </tr>
               `
             )
@@ -2293,9 +2407,14 @@
     });
 
     Object.values(state.dailyReports || {}).forEach((reports) => {
-      if (!reports || typeof reports !== "object" || !(oldName in reports)) return;
-      reports[newName] = reports[oldName];
-      delete reports[oldName];
+      if (!reports || typeof reports !== "object") return;
+      if (oldName in reports) {
+        reports[newName] = reports[oldName];
+        delete reports[oldName];
+      }
+      if (Array.isArray(reports[REPORT_HIDDEN_KEY])) {
+        reports[REPORT_HIDDEN_KEY] = reports[REPORT_HIDDEN_KEY].map((teacher) => (teacher === oldName ? newName : teacher)).filter(unique);
+      }
     });
   }
 
@@ -2331,6 +2450,9 @@
     Object.values(state.dailyReports || {}).forEach((reports) => {
       if (!reports || typeof reports !== "object") return;
       delete reports[name];
+      if (Array.isArray(reports[REPORT_HIDDEN_KEY])) {
+        reports[REPORT_HIDDEN_KEY] = reports[REPORT_HIDDEN_KEY].filter((teacher) => teacher !== name);
+      }
     });
   }
 
@@ -2586,6 +2708,16 @@
         const orderB = MOVE_TYPE_LABELS.indexOf(normalizeMoveType(b));
         return `${orderA < 0 ? 99 : orderA}${a.person}`.localeCompare(`${orderB < 0 ? 99 : orderB}${b.person}`);
       });
+  }
+
+  function vacationTeachersForDate(date) {
+    const vacationLabel = MOVE_TYPES.find((type) => type.key === "vacation")?.label || "휴가";
+    return new Set(
+      movesForDate(date)
+        .filter((entry) => normalizeMoveType(entry) === vacationLabel)
+        .map((entry) => cleanSelectValue(entry.person))
+        .filter(Boolean)
+    );
   }
 
   function countFilledScheduleCells(date) {
@@ -2853,6 +2985,37 @@
     return state.dailyReports[date];
   }
 
+  function reportHiddenTeachers(date) {
+    const reports = getTeacherReports(date);
+    return new Set(Array.isArray(reports[REPORT_HIDDEN_KEY]) ? reports[REPORT_HIDDEN_KEY].map(cleanSelectValue).filter(Boolean) : []);
+  }
+
+  function reportTeachersForDate(date) {
+    const hidden = reportHiddenTeachers(date);
+    const vacation = vacationTeachersForDate(date);
+    return (state.settings.teachers || []).filter((teacher) => !vacation.has(teacher) && !hidden.has(teacher));
+  }
+
+  function hideTeacherReport(teacher) {
+    const name = cleanSelectValue(teacher);
+    if (!name) return;
+    const reports = getTeacherReports(dailyDate);
+    const hidden = new Set(Array.isArray(reports[REPORT_HIDDEN_KEY]) ? reports[REPORT_HIDDEN_KEY] : []);
+    hidden.add(name);
+    reports[REPORT_HIDDEN_KEY] = Array.from(hidden).filter(Boolean);
+    saveState("교사별 보고 업무에서 제외했습니다.");
+    renderDaily();
+  }
+
+  function showTeacherReport(teacher) {
+    const name = cleanSelectValue(teacher);
+    if (!name) return;
+    const reports = getTeacherReports(dailyDate);
+    reports[REPORT_HIDDEN_KEY] = (Array.isArray(reports[REPORT_HIDDEN_KEY]) ? reports[REPORT_HIDDEN_KEY] : []).filter((item) => item !== name);
+    saveState("교사별 보고 업무에 다시 표시했습니다.");
+    renderDaily();
+  }
+
   function updateTeacherReport(target) {
     const teacher = target.dataset.reportField;
     if (!teacher) return;
@@ -2967,6 +3130,13 @@
 
   function formatSlotLabel(slot) {
     return h(slot).replace("~", "<br />~<br />");
+  }
+
+  function formatSlotText(slot) {
+    const [start, end] = String(slot || "")
+      .split("~")
+      .map((part) => part.trim());
+    return end ? `${start} ~ ${end}` : start || "";
   }
 
   function scheduleKey(slot, service) {
@@ -3130,6 +3300,13 @@
       return;
     }
 
+    const todayTeacherButton = event.target.closest("[data-select-today-teacher]");
+    if (todayTeacherButton) {
+      selectedTodayTeacher = todayTeacherButton.dataset.selectTodayTeacher || "";
+      renderHome();
+      return;
+    }
+
     const addGroupButton = event.target.closest("[data-add-schedule-group]");
     if (addGroupButton) {
       addScheduleGroup(addGroupButton.dataset.addScheduleGroup);
@@ -3173,6 +3350,18 @@
     const removeAftercareButton = event.target.closest("[data-remove-aftercare-item]");
     if (removeAftercareButton) {
       removeAftercareItem(removeAftercareButton.dataset.removeAftercareItem);
+      return;
+    }
+
+    const hideReportButton = event.target.closest("[data-hide-report-teacher]");
+    if (hideReportButton) {
+      hideTeacherReport(hideReportButton.dataset.hideReportTeacher);
+      return;
+    }
+
+    const showReportButton = event.target.closest("[data-show-report-teacher]");
+    if (showReportButton) {
+      showTeacherReport(showReportButton.dataset.showReportTeacher);
       return;
     }
 
