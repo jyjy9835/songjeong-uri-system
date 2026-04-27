@@ -1123,7 +1123,9 @@
     const groups = slotRecord.groups.length ? slotRecord.groups : [blankScheduleGroup()];
 
     if (isDismissalSlot(slot)) {
-      return renderDismissalEditorRow(date, slot, groups[0]);
+      return renderDismissalEditorRow(date, slot, groups[0], {
+        hasAftercareInfoSpan: isAftercareSlot(slot) && slot !== firstAftercareSlot()
+      });
     }
 
     const rowSpan = groups.length;
@@ -1182,15 +1184,16 @@
       .join("");
   }
 
-  function renderDismissalEditorRow(date, slot, group) {
+  function renderDismissalEditorRow(date, slot, group, options = {}) {
     const targetGroup = group || blankScheduleGroup();
+    const userColspan = options.hasAftercareInfoSpan ? 1 : 4;
 
     return `
       <tr class="schedule-group-row aftercare-row dismissal-row">
         <th class="time-label">${formatSlotLabel(slot)}</th>
         <td class="dismissal-label" colspan="2">하원 송영</td>
         <td>${renderTeacherMultiSelect(slot, targetGroup, new Set())}</td>
-        <td colspan="4">${renderUserPicker(date, slot, [targetGroup], targetGroup)}</td>
+        <td colspan="${userColspan}">${renderUserPicker(date, slot, [targetGroup], targetGroup)}</td>
       </tr>
     `;
   }
@@ -1928,7 +1931,7 @@
 
       rows.push(
         renderSchedulePrintRows(date, slot, {
-          showAftercareInfo: isAftercareSlot(slot) && slot === firstAftercareSlot(),
+          showAftercareInfo: isAftercareInfoSlot(slot) && slot === firstAftercareSlot(),
           aftercareRowSpan: aftercareEditorRowSpan(date)
         })
       );
@@ -1972,6 +1975,11 @@
     const rowSpan = groups.length;
     const aftercare = isAftercareSlot(slot);
     const programSpans = programMergeSpans(groups);
+    if (isDismissalSlot(slot)) {
+      return renderDismissalPrintRow(date, slot, groups[0], {
+        hasAftercareInfoSpan: aftercare && slot !== firstAftercareSlot()
+      });
+    }
 
     return groups
       .map(
@@ -1997,6 +2005,20 @@
         `
       )
       .join("");
+  }
+
+  function renderDismissalPrintRow(date, slot, group, options = {}) {
+    const targetGroup = group || blankScheduleGroup();
+    const userColspan = options.hasAftercareInfoSpan ? 1 : 4;
+
+    return `
+      <tr class="aftercare-row dismissal-row">
+        <th class="time-label">${formatSlotLabel(slot)}</th>
+        <td class="dismissal-label" colspan="2">하원 송영</td>
+        <td>${teacherBadgeList(groupTeacherList(targetGroup), "")}</td>
+        <td colspan="${userColspan}">${h(normalizeUserList(targetGroup.users).join(", "))}</td>
+      </tr>
+    `;
   }
 
   function renderAftercarePrint(info) {
@@ -3111,6 +3133,15 @@
 
   function isAftercareSlot(slot) {
     return slotStartMinutes(slot) >= 16 * 60;
+  }
+
+  function isDismissalSlot(slot) {
+    const [, end] = String(slot || "").split("~");
+    return isAftercareSlot(slot) && !cleanSelectValue(end);
+  }
+
+  function isAftercareInfoSlot(slot) {
+    return isAftercareSlot(slot) && !isDismissalSlot(slot);
   }
 
   function firstAftercareSlot() {
