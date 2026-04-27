@@ -81,6 +81,18 @@ button {
   font-weight: 800;
 }
 
+.logo-mark {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+}
+
+.logo-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .brand h1 {
   margin: 0;
   font-size: 1.28rem;
@@ -246,6 +258,37 @@ button {
 
 .panel.span-12 {
   grid-column: span 12;
+}
+
+.home-logo-card {
+  grid-column: span 12;
+  min-height: 122px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: 0 10px 26px rgba(27, 47, 69, 0.06);
+}
+
+.home-logo-card img {
+  width: 108px;
+  height: 76px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.home-logo-card strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--navy);
+  font-size: 1.22rem;
+}
+
+.home-logo-card span {
+  color: var(--muted);
 }
 
 .panel-head {
@@ -920,6 +963,29 @@ button {
   background: #fff;
 }
 
+.schedule-color-strip {
+  display: grid;
+  grid-template-columns: 8% 1fr 8%;
+  height: 8px;
+  border-bottom: 1px solid #1f2933;
+}
+
+.schedule-color-strip span {
+  display: block;
+}
+
+.schedule-color-strip .strip-red {
+  background: #ff1f14;
+}
+
+.schedule-color-strip .strip-sky {
+  background: #83c9dc;
+}
+
+.schedule-color-strip .strip-purple {
+  background: #8a27c8;
+}
+
 .schedule-editor-table,
 .print-timetable {
   width: 100%;
@@ -952,9 +1018,15 @@ button {
 .schedule-editor-table .service-band th,
 .print-timetable .service-band th {
   padding: 11px 10px;
-  background: #e7f0fa;
+  background: #fff3bf;
   color: var(--navy);
   font-size: 1rem;
+}
+
+.schedule-editor-table .service-band.aftercare-band th,
+.print-timetable .service-band.aftercare-band th {
+  background: #b7e4c7;
+  color: #183a2a;
 }
 
 .schedule-editor-table th:nth-child(1),
@@ -995,6 +1067,20 @@ button {
 .schedule-editor-table tbody th {
   padding: 9px 10px;
   background: #fff;
+}
+
+.schedule-editor-table .day-row td,
+.schedule-editor-table .day-row th,
+.print-timetable .day-row td,
+.print-timetable .day-row th {
+  background: #fffbe6;
+}
+
+.schedule-editor-table .aftercare-row td,
+.schedule-editor-table .aftercare-row th,
+.print-timetable .aftercare-row td,
+.print-timetable .aftercare-row th {
+  background: #ecf8ee;
 }
 
 .schedule-editor-table .time-label,
@@ -1252,6 +1338,109 @@ button {
 
 .teacher-picker-field {
   align-self: stretch;
+}
+
+.move-bulk-editor {
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.move-type-list {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+}
+
+.move-type-card {
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 8px solid #9ca8b5;
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+}
+
+.move-type-card span {
+  font-weight: 800;
+}
+
+.move-type-card strong {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.move-type-card small {
+  grid-column: 1 / -1;
+  min-height: 20px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.move-type-card.active {
+  outline: 2px solid #1f78ff;
+  background: #edf4ff;
+}
+
+.move-type-card.note-row {
+  border-left-color: #ffd43b;
+}
+
+.move-type-card.half-row {
+  border-left-color: #74c0fc;
+}
+
+.move-type-card.day-route {
+  border-left-color: #55c59f;
+}
+
+.move-type-card.after-route {
+  border-left-color: #b58ad7;
+}
+
+.move-teacher-panel {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+}
+
+.move-panel-head {
+  display: grid;
+  gap: 3px;
+}
+
+.move-panel-head strong {
+  color: var(--navy);
+  font-size: 1.05rem;
+}
+
+.move-panel-head span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.move-teacher-grid {
+  min-height: 140px;
+  max-height: 260px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 6px 10px;
+}
+
+.move-memo-field {
+  display: grid;
+  gap: 6px;
 }
 
 .picker-group-label {
@@ -1564,6 +1753,19 @@ button {
   white-space: pre-wrap;
 }
 
+.observation-print-logo {
+  margin-top: 8mm;
+  text-align: center;
+}
+
+.observation-print-logo img {
+  width: 42mm;
+  max-width: 50%;
+  height: auto;
+  object-fit: contain;
+  opacity: 0.95;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1731,7 +1933,9 @@ button {
   .panel.span-4,
   .panel.span-5,
   .panel.span-7,
-  .panel.span-8 {
+  .panel.span-8,
+  .panel.span-12,
+  .home-logo-card {
     grid-column: span 6;
   }
 
@@ -1801,8 +2005,15 @@ button {
   .admin-grid,
   .settings-grid,
   .field-grid,
-  .field-grid.three {
+  .field-grid.three,
+  .move-bulk-editor,
+  .move-teacher-grid {
     grid-template-columns: 1fr;
+  }
+
+  .home-logo-card {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .inline-add-form,
@@ -1882,6 +2093,12 @@ button {
 
   body.printing-schedule .print-sheet-head span {
     font-size: 9pt;
+  }
+
+  body.printing-schedule .schedule-color-strip {
+    height: 2mm;
+    margin-bottom: 1.5mm;
+    border-bottom: 0.5pt solid #1f2933;
   }
 
   body.printing-schedule .print-timetable {
@@ -2055,5 +2272,9 @@ button {
 
   body.printing-observations .observation-print-item.print-selected {
     display: block;
+  }
+
+  body.printing-observations .observation-print-logo {
+    margin-top: 6mm;
   }
 }

@@ -5,6 +5,7 @@
   const CLIENT_ID_KEY = "songjeong-client-id";
   const SHARED_DATA_URL = "/.netlify/functions/shared-data";
   const SYNC_INTERVAL_MS = 10000;
+  const CENTER_LOGO_SRC = "./assets/songjeong-uri-logo.jpg";
   const REPORT_HIDDEN_KEY = "__hiddenTeachers";
   const KOREAN_DAYS = ["일", "월", "화", "수", "목", "금", "토"];
   const SUPPORT_FIELDS = ["rest", "docs", "desk"];
@@ -12,6 +13,25 @@
     rest: "휴게",
     docs: "서류",
     desk: "데스크"
+  };
+  const ROOM_OPTIONS = ["우리실", "송정실", "사무실", "301호 체육실", "302호 체육실", "요리실"];
+  const CANONICAL_TIME_SLOTS = [
+    "09:00~09:30",
+    "09:30~10:00",
+    "10:00~11:00",
+    "11:00~12:00",
+    "12:00~13:00",
+    "13:00~14:00",
+    "14:00~15:00",
+    "15:00~16:00",
+    "16:00~16:40",
+    "16:40~18:00",
+    "18:00~18:40",
+    "18:40~"
+  ];
+  const TIME_SLOT_RENAMES = {
+    "16:40~17:30": "16:40~18:00",
+    "17:30~18:40": "18:00~18:40"
   };
   const CORE_PROGRAM_OPTIONS = ["등원 / 출석 확인", "등원 및 개별학습", "점심식사 및 양치질 지도", "돌봄 / 서류 업무", "하원 준비", "개별지원"];
   const USER_GROUPS = [
@@ -221,20 +241,8 @@
           afterMonTueThuSat: ["이용인3"],
           afterWedFriSat: ["이용인4"]
         },
-        rooms: ["우리실", "활동실", "교실1", "교실2", "생활실", "외부"],
-        timeSlots: [
-          "09:00~09:30",
-          "09:30~10:00",
-          "10:00~11:00",
-          "11:00~12:00",
-          "12:00~13:00",
-          "13:00~14:00",
-          "14:00~15:00",
-          "15:00~16:00",
-          "16:00~16:40",
-          "16:40~17:30",
-          "17:30~18:40"
-        ],
+        rooms: ROOM_OPTIONS,
+        timeSlots: CANONICAL_TIME_SLOTS,
         adminPin: "0000"
       },
       closedDates: []
@@ -248,6 +256,47 @@
     } catch {
       return null;
     }
+  }
+
+  function migrateScheduleTimeSlots(dailySchedules) {
+    if (!dailySchedules || typeof dailySchedules !== "object") return;
+
+    Object.values(dailySchedules).forEach((daySchedule) => {
+      if (!daySchedule || typeof daySchedule !== "object") return;
+
+      Object.entries(TIME_SLOT_RENAMES).forEach(([oldSlot, nextSlot]) => {
+        Object.keys(daySchedule)
+          .filter((key) => key === oldSlot || key.startsWith(`${oldSlot}||`))
+          .forEach((key) => {
+            const nextKey = key === oldSlot ? nextSlot : key.replace(oldSlot, nextSlot);
+            daySchedule[nextKey] = daySchedule[nextKey] ? mergeScheduleSlotRecords(daySchedule[nextKey], daySchedule[key]) : daySchedule[key];
+            delete daySchedule[key];
+          });
+      });
+    });
+  }
+
+  function mergeScheduleSlotRecords(target, source) {
+    const first = normalizeScheduleSlot(target);
+    const second = normalizeScheduleSlot(source);
+
+    return {
+      groups: [...first.groups, ...second.groups].filter(scheduleGroupHasContent),
+      rest: first.rest || second.rest,
+      docs: first.docs || second.docs,
+      desk: first.desk || second.desk,
+      afterInfo: mergeAfterInfo(first.afterInfo, second.afterInfo)
+    };
+  }
+
+  function mergeAfterInfo(target, source) {
+    const first = normalizeAfterInfo(target);
+    const second = normalizeAfterInfo(source);
+
+    return normalizeAfterInfo({
+      items: [...first.items, ...second.items],
+      memo: first.memo || second.memo
+    });
   }
 
   function normalizeState(input) {
@@ -316,6 +365,8 @@
       });
     }
 
+    migrateScheduleTimeSlots(next.dailySchedules);
+
     if (Array.isArray(input.vacationTransport)) {
       next.vacationTransport = input.vacationTransport.map(normalizeMove);
     } else if (Array.isArray(input.vacationEntries)) {
@@ -348,11 +399,13 @@
       next.settings.userGroups = null;
     }
 
-    ["teachers", "users", "rooms", "timeSlots"].forEach((key) => {
+    ["teachers", "users"].forEach((key) => {
       if (!Array.isArray(next.settings[key]) || !next.settings[key].length) {
         next.settings[key] = base.settings[key];
       }
     });
+    next.settings.rooms = ROOM_OPTIONS;
+    next.settings.timeSlots = CANONICAL_TIME_SLOTS;
 
     next.settings.userGroups = normalizeUserGroups(next.settings.userGroups, next.settings.users);
     next.settings.users = flattenUserGroups(next.settings.userGroups);
@@ -624,6 +677,14 @@
 
     app.innerHTML = `
       <div class="dashboard-grid">
+        <section class="home-logo-card span-12">
+          <img src="${CENTER_LOGO_SRC}" alt="송정우리 주간·방과후 활동서비스센터 로고" />
+          <div>
+            <strong>송정우리 통합업무시스템</strong>
+            <span>오늘 일정과 기록을 한 화면에서 확인합니다.</span>
+          </div>
+        </section>
+
         <article class="panel metric learning span-4">
           <span>오늘 프로그램</span>
           <strong>${programs.length}</strong>
@@ -973,6 +1034,7 @@
       </div>
       <section class="daily-editor-section">
         <div class="timetable-shell">
+          ${renderScheduleColorStrip()}
           ${renderScheduleEditorTable(dailyDate, programOptions)}
           ${renderTeacherReportEditor(dailyDate)}
         </div>
@@ -986,6 +1048,16 @@
           ${renderSchedulePrintSheet(dailyDate)}
         </div>
       </section>
+    `;
+  }
+
+  function renderScheduleColorStrip() {
+    return `
+      <div class="schedule-color-strip" aria-hidden="true">
+        <span class="strip-red"></span>
+        <span class="strip-sky"></span>
+        <span class="strip-purple"></span>
+      </div>
     `;
   }
 
@@ -1005,7 +1077,7 @@
 
       rows.push(
         renderScheduleSlotRows(date, slot, programOptions, {
-          showAftercareInfo: isAftercareSlot(slot) && slot === firstAftercareSlot(),
+          showAftercareInfo: isAftercareInfoSlot(slot) && slot === firstAftercareSlot(),
           aftercareRowSpan: aftercareEditorRowSpan(date)
         })
       );
@@ -1049,18 +1121,23 @@
   function renderScheduleSlotRows(date, slot, programOptions, options = {}) {
     const slotRecord = getScheduleSlot(date, slot);
     const groups = slotRecord.groups.length ? slotRecord.groups : [blankScheduleGroup()];
+
+    if (isDismissalSlot(slot)) {
+      return renderDismissalEditorRow(date, slot, groups[0]);
+    }
+
     const rowSpan = groups.length;
     const aftercare = isAftercareSlot(slot);
     const programSpans = programMergeSpans(groups);
 
     return groups
       .map((group, index) => {
-        const groupTeachers = new Set(groups.filter((item) => item.id !== group.id).map((item) => item.teacher).filter(Boolean));
+        const groupTeachers = new Set(groups.filter((item) => item.id !== group.id).flatMap(groupTeacherList));
         const blockedTeachers = aftercare ? groupTeachers : new Set([...groupTeachers, ...supportValues(slotRecord)]);
         const mergedProgramIds = programSpans[index] > 0 ? groups.slice(index, index + programSpans[index]).map((item) => item.id).join(",") : "";
 
         return `
-          <tr class="schedule-group-row">
+          <tr class="schedule-group-row ${aftercare ? "aftercare-row" : "day-row"}">
             ${index === 0 ? `<th class="time-label" rowspan="${rowSpan}">${formatSlotLabel(slot)}</th>` : ""}
             ${
               programSpans[index] > 0
@@ -1075,9 +1152,7 @@
               </select>
             </td>
             <td>
-              <select data-schedule-group-field="teacher" data-slot="${h(slot)}" data-group-id="${h(group.id)}" aria-label="${h(slot)} 담당 교사">
-                ${renderTeacherOptions(group.teacher, blockedTeachers, "교사 선택")}
-              </select>
+              ${renderTeacherMultiSelect(slot, group, blockedTeachers)}
               <div class="group-actions">
                 <button class="mini-button" data-add-schedule-group="${h(slot)}" type="button">+ 그룹 추가</button>
                 ${groups.length > 1 ? `<button class="mini-button danger-mini" data-remove-schedule-group="${h(group.id)}" data-slot="${h(slot)}" type="button">삭제</button>` : ""}
@@ -1105,6 +1180,19 @@
         `;
       })
       .join("");
+  }
+
+  function renderDismissalEditorRow(date, slot, group) {
+    const targetGroup = group || blankScheduleGroup();
+
+    return `
+      <tr class="schedule-group-row aftercare-row dismissal-row">
+        <th class="time-label">${formatSlotLabel(slot)}</th>
+        <td class="dismissal-label" colspan="2">하원 송영</td>
+        <td>${renderTeacherMultiSelect(slot, targetGroup, new Set())}</td>
+        <td colspan="4">${renderUserPicker(date, slot, [targetGroup], targetGroup)}</td>
+      </tr>
+    `;
   }
 
   function programMergeSpans(groups) {
@@ -1254,7 +1342,7 @@
   }
 
   function renderSupportSelect(slot, slotRecord, field) {
-    const groupTeachers = new Set(slotRecord.groups.map((group) => group.teacher).filter(Boolean));
+    const groupTeachers = new Set(slotRecord.groups.flatMap(groupTeacherList));
     const otherSupport = new Set(SUPPORT_FIELDS.filter((item) => item !== field).map((item) => slotRecord[item]).filter(Boolean));
     const blocked = new Set([...groupTeachers, ...otherSupport]);
 
@@ -1263,6 +1351,28 @@
         ${renderTeacherOptions(slotRecord[field], blocked, `${SUPPORT_LABELS[field]} 선택`)}
       </select>
     `;
+  }
+
+  function renderTeacherMultiSelect(slot, group, blocked) {
+    const size = Math.min(5, Math.max(3, (state.settings.teachers || []).length || 3));
+
+    return `
+      <select class="schedule-teacher-select" data-schedule-group-field="teachers" data-slot="${h(slot)}" data-group-id="${h(group.id)}" aria-label="${h(slot)} 담당 교사" multiple size="${size}">
+        ${renderTeacherMultiOptions(groupTeacherList(group), blocked)}
+      </select>
+    `;
+  }
+
+  function renderTeacherMultiOptions(selected, blocked) {
+    const selectedSet = new Set(normalizeTeacherList(selected));
+
+    return (state.settings.teachers || [])
+      .filter(unique)
+      .map((teacher) => {
+        const disabled = teacher && !selectedSet.has(teacher) && blocked.has(teacher);
+        return `<option value="${h(teacher)}" ${selectedSet.has(teacher) ? "selected" : ""} ${disabled ? "disabled" : ""}>${h(teacher)}</option>`;
+      })
+      .join("");
   }
 
   function renderTeacherOptions(selected, blocked, emptyLabel) {
@@ -1371,6 +1481,9 @@
             `
           )
           .join("")}
+        <footer class="observation-print-logo">
+          <img src="${CENTER_LOGO_SRC}" alt="송정우리 주간·방과후 활동서비스센터 로고" />
+        </footer>
       </section>
     `;
   }
@@ -1829,6 +1942,7 @@
             <span>${h(formatLongDate(date))}</span>
           </div>
         </header>
+        ${renderScheduleColorStrip()}
         <table class="print-timetable">
           <thead>
             <tr>
@@ -1862,7 +1976,7 @@
     return groups
       .map(
         (group, index) => `
-          <tr>
+          <tr class="${aftercare ? "aftercare-row" : "day-row"}">
             ${index === 0 ? `<th class="time-label" rowspan="${rowSpan}">${formatSlotLabel(slot)}</th>` : ""}
             ${programSpans[index] > 0 ? `<td rowspan="${programSpans[index]}">${h(group.program || "")}</td>` : ""}
             <td>${h(group.room || "")}</td>
@@ -2015,8 +2129,11 @@
     `;
   }
 
-  function openMoveModal(date) {
-    const items = movesForDate(date);
+  function openMoveModal(date, activeType = "") {
+    const selectedType = MOVE_TYPE_LABELS.includes(activeType) ? activeType : MOVE_TYPES[0].label;
+    const selectedEntries = moveEntriesForType(date, selectedType);
+    const selectedTeachers = new Set(selectedEntries.map((entry) => cleanSelectValue(entry.person)).filter(Boolean));
+    const selectedMemo = selectedEntries.find((entry) => entry.memo)?.memo || "";
 
     modalRoot.innerHTML = `
       <div class="modal-backdrop" role="presentation">
@@ -2026,65 +2143,54 @@
             <button class="icon-button" data-close-modal type="button" aria-label="닫기">×</button>
           </div>
           <div class="modal-body">
-            <form id="move-form" class="field-grid">
-              <input name="date" type="hidden" value="${h(date)}" />
-              <label class="field">
-                <span>구분</span>
-                <select name="type" required>
-                  ${MOVE_TYPES.map((type) => `<option value="${h(type.label)}">${h(type.label)}</option>`).join("")}
-                </select>
-              </label>
-              <div class="field teacher-picker-field">
-                <span>담당교사</span>
-                <div class="teacher-picker">
+            <div class="move-bulk-editor">
+              <div class="move-type-list" aria-label="휴가·송영 구분">
+                ${MOVE_TYPES.map((type) => renderMoveTypeCard(date, type, selectedType)).join("")}
+              </div>
+
+              <form id="move-form" class="move-teacher-panel">
+                <input name="date" type="hidden" value="${h(date)}" />
+                <input name="type" type="hidden" value="${h(selectedType)}" />
+                <div class="move-panel-head">
+                  <strong>${h(selectedType)}</strong>
+                  <span>선택한 교사로 이 줄의 담당자를 한 번에 저장합니다.</span>
+                </div>
+                <div class="teacher-picker move-teacher-grid">
                   ${state.settings.teachers
                     .map(
                       (teacher) => `
                         <label class="check-row">
-                          <input name="persons" type="checkbox" value="${h(teacher)}" />
+                          <input name="persons" type="checkbox" value="${h(teacher)}" ${selectedTeachers.has(teacher) ? "checked" : ""} />
                           <span>${teacherBadge(teacher)}</span>
                         </label>
                       `
                     )
                     .join("")}
                 </div>
-              </div>
-              <label class="field full">
-                <span>메모</span>
-                <input name="memo" placeholder="전달사항" />
-              </label>
-              <div class="modal-actions field full">
-                <button class="primary-button" type="submit">항목 추가</button>
-              </div>
-            </form>
-
-            <div class="panel" style="margin-top: 16px;">
-              <div class="panel-head">
-                <h3>등록된 항목</h3>
-              </div>
-              <div class="panel-body">
-                ${
-                  items.length
-                    ? `<div class="list">${items
-                        .map(
-                          (item) => `
-                            <article class="list-item">
-                              <strong>${h(item.type)} · ${teacherBadge(item.person, item.person)}</strong>
-                              ${item.memo ? `<span>${h(item.memo)}</span>` : ""}
-                              <div>
-                                <button class="danger-button" data-delete-move="${h(item.id)}" data-move-date="${h(date)}" type="button">삭제</button>
-                              </div>
-                            </article>
-                          `
-                        )
-                        .join("")}</div>`
-                    : `<div class="empty">이 날짜에는 등록된 항목이 없습니다.</div>`
-                }
-              </div>
+                <label class="field full move-memo-field">
+                  <span>메모</span>
+                  <input name="memo" value="${h(selectedMemo)}" placeholder="필요한 전달사항" />
+                </label>
+                <div class="modal-actions">
+                  <button class="primary-button" type="submit">선택 저장</button>
+                </div>
+              </form>
             </div>
           </div>
         </section>
       </div>
+    `;
+  }
+
+  function renderMoveTypeCard(date, type, selectedType) {
+    const entries = moveEntriesForType(date, type.label);
+    const teachers = entries.map((entry) => cleanSelectValue(entry.person)).filter(Boolean);
+    return `
+      <button class="move-type-card ${type.label === selectedType ? "active" : ""} ${h(type.className)}" data-move-type-panel="${h(type.label)}" data-move-date="${h(date)}" type="button">
+        <span>${h(type.label)}</span>
+        <strong>${teachers.length ? `${teachers.length}명` : "미지정"}</strong>
+        <small>${teachers.length ? teachers.map((teacher) => teacherBadge(teacher, teacher)).join(" ") : "담당교사를 선택하세요"}</small>
+      </button>
     `;
   }
 
@@ -2174,32 +2280,30 @@
   function handleMoveSubmit(form) {
     const data = new FormData(form);
     const date = String(data.get("date") || todayIso);
+    const type = cleanSelectValue(data.get("type")) || MOVE_TYPES[0].label;
+    const memo = String(data.get("memo") || "").trim();
     const people = data
       .getAll("persons")
       .map(cleanSelectValue)
       .filter(Boolean)
       .filter(unique);
 
-    if (!people.length) {
-      setSyncStatus("담당교사를 선택해주세요.");
-      return;
-    }
-
     const entries = people.map((person) =>
       normalizeMove({
         date,
-        type: data.get("type"),
+        type,
         person,
         time: "",
         route: "",
-        memo: String(data.get("memo") || "").trim()
+        memo
       })
     );
 
+    state.vacationTransport = state.vacationTransport.filter((entry) => !(entry.date === date && normalizeMoveType(entry) === type));
     state.vacationTransport.push(...entries);
-    saveState("휴가·송영 항목이 추가되었습니다.");
+    saveState(people.length ? "휴가·송영 담당자가 저장되었습니다." : "해당 구분의 담당자가 비워졌습니다.");
     render();
-    openMoveModal(date);
+    openMoveModal(date, type);
   }
 
   function handleObservationSubmit(form) {
@@ -2516,6 +2620,13 @@
         const mergedGroup = findScheduleGroup(dailyDate, slot, id);
         if (mergedGroup) mergedGroup.program = target.value;
       });
+    } else if (field === "teachers") {
+      setGroupTeachers(
+        group,
+        Array.from(target.selectedOptions || [])
+          .map((option) => option.value)
+          .filter(Boolean)
+      );
     } else {
       group[field] = target.value;
     }
@@ -2710,6 +2821,10 @@
       });
   }
 
+  function moveEntriesForType(date, type) {
+    return movesForDate(date).filter((entry) => normalizeMoveType(entry) === type);
+  }
+
   function vacationTeachersForDate(date) {
     const vacationLabel = MOVE_TYPES.find((type) => type.key === "vacation")?.label || "휴가";
     return new Set(
@@ -2784,11 +2899,14 @@
   }
 
   function normalizeScheduleGroup(input = {}) {
+    const teachers = normalizeTeacherList(input.teachers && input.teachers.length ? input.teachers : input.teacher);
+
     return {
       id: input.id || uid("group"),
       program: cleanSelectValue(input.program),
       room: cleanSelectValue(input.room),
-      teacher: cleanSelectValue(input.teacher),
+      teacher: teachers[0] || "",
+      teachers,
       users: normalizeUserList(input.users)
     };
   }
@@ -2842,6 +2960,7 @@
       program: "",
       room: "",
       teacher: "",
+      teachers: [],
       users: []
     };
   }
@@ -2862,11 +2981,13 @@
         return true;
       });
 
-      if (normalized.teacher && usedTeachers.has(normalized.teacher)) {
-        normalized.teacher = "";
-      }
+      const teachers = groupTeacherList(normalized).filter((teacher) => {
+        if (usedTeachers.has(teacher)) return false;
+        usedTeachers.add(teacher);
+        return true;
+      });
+      setGroupTeachers(normalized, teachers);
 
-      if (normalized.teacher) usedTeachers.add(normalized.teacher);
       return normalized;
     });
 
@@ -2900,6 +3021,7 @@
     return Boolean(
       group.program ||
         group.teacher ||
+        groupTeacherList(group).length ||
         group.room ||
         group.rest ||
         group.docs ||
@@ -2911,6 +3033,29 @@
 
   function supportValues(slotRecord) {
     return SUPPORT_FIELDS.map((field) => slotRecord[field]).filter(Boolean);
+  }
+
+  function groupTeacherList(group = {}) {
+    return normalizeTeacherList(group.teachers && group.teachers.length ? group.teachers : group.teacher);
+  }
+
+  function setGroupTeachers(group, teachers) {
+    const list = normalizeTeacherList(teachers);
+    group.teachers = list;
+    group.teacher = list[0] || "";
+    return group;
+  }
+
+  function normalizeTeacherList(value) {
+    if (Array.isArray(value)) {
+      return value.map(cleanSelectValue).filter(Boolean).filter(unique);
+    }
+
+    return String(value || "")
+      .split(/[,/|\n]+/)
+      .map(cleanSelectValue)
+      .filter(Boolean)
+      .filter(unique);
   }
 
   function normalizeUserList(value) {
@@ -3098,6 +3243,12 @@
     if (!teacher) return h(fallback);
     if (!state.settings.teachers.includes(teacher)) return h(teacher);
     return `<span class="teacher-name" style="--teacher-color: ${h(teacherColor(teacher))}">${h(teacher)}</span>`;
+  }
+
+  function teacherBadgeList(value, fallback = "") {
+    const teachers = normalizeTeacherList(value);
+    if (!teachers.length) return h(fallback);
+    return teachers.map((teacher) => teacherBadge(teacher, teacher)).join(" ");
   }
 
   function programOptionsForDate(date) {
@@ -3292,6 +3443,12 @@
     const moveDay = event.target.closest("[data-open-move-date]");
     if (moveDay) {
       openMoveModal(moveDay.dataset.openMoveDate);
+      return;
+    }
+
+    const moveTypeButton = event.target.closest("[data-move-type-panel]");
+    if (moveTypeButton) {
+      openMoveModal(moveTypeButton.dataset.moveDate, moveTypeButton.dataset.moveTypePanel);
       return;
     }
 
