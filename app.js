@@ -1586,7 +1586,7 @@
 
         const slotRecord = normalizeScheduleSlot(daySchedule[slot]);
         slotRecord.groups.forEach((group) => {
-          if (group.teacher) addWorkMinutes(byTeacher, totals, group.teacher, "lesson", duration);
+          groupTeacherList(group).forEach((teacher) => addWorkMinutes(byTeacher, totals, teacher, "lesson", duration));
         });
 
         if (!isAftercareSlot(slot)) {
@@ -1881,7 +1881,7 @@
       const slotRecord = getScheduleSlot(date, slot);
 
       slotRecord.groups.forEach((group) => {
-        if (group.teacher !== teacher) return;
+        if (!groupTeacherList(group).includes(teacher)) return;
         rows.push({
           slot,
           kind: "수업",
@@ -1980,7 +1980,7 @@
             ${index === 0 ? `<th class="time-label" rowspan="${rowSpan}">${formatSlotLabel(slot)}</th>` : ""}
             ${programSpans[index] > 0 ? `<td rowspan="${programSpans[index]}">${h(group.program || "")}</td>` : ""}
             <td>${h(group.room || "")}</td>
-            <td>${teacherBadge(group.teacher, "")}</td>
+            <td>${teacherBadgeList(groupTeacherList(group), "")}</td>
             <td>${h(normalizeUserList(group.users).join(", "))}</td>
             ${
               index === 0
@@ -2505,7 +2505,10 @@
         });
         if (!Array.isArray(slotRecord.groups)) return;
         slotRecord.groups.forEach((group) => {
-          if (group.teacher === oldName) group.teacher = newName;
+          setGroupTeachers(
+            group,
+            groupTeacherList(group).map((teacher) => (teacher === oldName ? newName : teacher))
+          );
         });
       });
     });
@@ -2546,7 +2549,10 @@
         });
         if (!Array.isArray(slotRecord.groups)) return;
         slotRecord.groups.forEach((group) => {
-          if (group.teacher === name) group.teacher = "";
+          setGroupTeachers(
+            group,
+            groupTeacherList(group).filter((teacher) => teacher !== name)
+          );
         });
       });
     });
