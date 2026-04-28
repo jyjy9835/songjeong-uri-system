@@ -943,12 +943,14 @@
                         .map((date) => {
                           const iso = toIsoDate(date);
                           const canEdit = !isClosedDate(iso) && date.getMonth() === cursor.getMonth();
+                          const hasTransportItems = movesForDate(iso).length > 0;
                           return `<td class="${transportDayClasses(date, cursor)}" ${canEdit ? `data-transport-drop-date="${h(iso)}"` : ""}>
                             <span>${date.getDate()}</span>
                             ${
                               canEdit
                                 ? `<div class="transport-day-actions">
                                     <button class="add-dot small" data-open-move-date="${h(iso)}" type="button" aria-label="${h(formatShortDate(iso))} 추가">+</button>
+                                    ${hasTransportItems ? `<button class="transport-clear-button" data-clear-transport-date="${h(iso)}" type="button" aria-label="${h(formatShortDate(iso))} 휴가·송영 정보 삭제">×</button>` : ""}
                                   </div>`
                                 : ""
                             }
@@ -1097,16 +1099,22 @@
 
   function renderTransportItems(items) {
     if (!items.length) return "";
-    const item = items[0];
-    const typeMeta = MOVE_TYPES.find((type) => type.label === item.type);
-    const itemClass = typeMeta?.className === "note-row" ? "vacation" : typeMeta?.className === "half-row" ? "half" : "transport";
-    const teachers = items.map((entry) => cleanSelectValue(entry.person)).filter(Boolean);
-    const memo = items.map((entry) => cleanSelectValue(entry.memo)).filter(Boolean).filter(unique).join(" / ");
     return `
       <div class="transport-chip-list">
-        <span class="chip transport-entry-chip ${itemClass}" draggable="true" data-transport-drag-date="${h(item.date)}">
-          ${h(teachers.join(", ") || "담당자 미정")}${memo ? ` · ${h(memo)}` : ""}
-        </span>
+        ${items
+          .map((entry) => {
+            const typeMeta = MOVE_TYPES.find((type) => type.label === entry.type);
+            const itemClass = typeMeta?.className || "day-route";
+            const teacher = cleanSelectValue(entry.person);
+            const memo = cleanSelectValue(entry.memo);
+            return `
+              <span class="chip transport-entry-chip ${h(itemClass)}" draggable="true" data-transport-drag-date="${h(entry.date)}" title="${h(shortMoveLabel(entry))}">
+                ${teacherBadge(teacher, "담당자 미정")}
+                ${memo ? `<small>${h(memo)}</small>` : ""}
+              </span>
+            `;
+          })
+          .join("")}
       </div>
     `;
   }
@@ -1173,7 +1181,7 @@
 
     state.settings.timeSlots.forEach((slot, index) => {
       if (index === 0) {
-        rows.push(renderScheduleServiceBand("주간 활동 서비스", dayScheduleRangeLabel()));
+        rows.push(renderScheduleServiceBand("주간 활동 서비스", dayScheduleRangeLabel(), "", renderDayServiceBandSummary(date, { interactive: true, showEmpty: true })));
       }
 
       if (isAftercareSlot(slot) && !aftercareBandAdded) {
@@ -1216,11 +1224,74 @@
     `;
   }
 
-  function renderScheduleServiceBand(label, range, className = "") {
+  function renderScheduleServiceBand(label, range, className = "", summary = "") {
+    const title = `<span class="service-band-title">${h(label)} (${h(range)})</span>`;
+    const content = summary ? `<div class="service-band-content">${title}${summary}</div>` : title;
     return `
       <tr class="service-band ${h(className)}">
-        <th colspan="8">${h(label)} (${h(range)})</th>
+        <th colspan="8">${content}</th>
       </tr>
+    `;
+  }
+
+  function renderDayServiceBandSummary(date, options = {}) {
+    const interactive = Boolean(options.interactive);
+    const showEmpty = options.showEmpty !== false;
+    const inboundTeachers = movesForDate(date)
+      .filter((entry) => normalizeMoveType(entry).includes("등원"))
+      .map((entry) => cleanSelectValue(entry.person))
+      .filter(Boolean)
+      .filter(unique);
+    const vacationTeachers = Array.from(vacationTeachersForDate(date));
+    const absentUsers = Array.from(absentAftercareUsers(date)).map(cleanSelectValue).filter(Boolean).filter(unique);
+    const summaryItems = [
+      { label: "등원 송영 담당자", value: teacherBadgeList(inboundTeachers, "없음"), hasValue: inboundTeachers.length > 0 },
+      { label: "휴가인원", value: teacherBadgeList(vacationTeachers, "없음"), hasValue: vacationTeachers.length > 0 },
+      {
+        label: "주간 결석 이용인",
+        value: interactive ? renderDayAbsentUserPicker(absentUsers) : absentUsers.map(h).join(", ") || "없음",
+        hasValue: absentUsers.length > 0,
+        className: interactive ? "has-picker" : ""
+      }
+    ].filter((item) => showEmpty || item.hasValue);
+
+    if (!summaryItems.length) return "";
+
+    return `
+      <div class="service-band-summary" aria-label="주간 활동 요약">
+        ${summaryItems
+          .map(
+            (item) => `
+              <span class="service-band-summary-item ${h(item.className || "")}">
+                <b>${h(item.label)}</b>
+                <span>${item.value}</span>
+              </span>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  function renderDayAbsentUserPicker(absentUsers = []) {
+    const selected = new Set(absentUsers);
+    const users = (state.settings.userGroups?.day || []).filter(unique);
+
+    if (!users.length) return `<span class="muted">등록된 이용인 없음</span>`;
+
+    return `
+      <span class="service-band-user-picker" data-day-absent-picker aria-label="주간 결석 이용인 선택">
+        ${users
+          .map(
+            (user) => `
+              <label class="check-row">
+                <input data-day-absent-user type="checkbox" value="${h(user)}" ${selected.has(user) ? "checked" : ""} />
+                <span>${h(user)}</span>
+              </label>
+            `
+          )
+          .join("")}
+      </span>
     `;
   }
 
@@ -1258,11 +1329,15 @@
                   </td>`
                 : ""
             }
-            <td>
-              <select data-schedule-group-field="room" data-slot="${h(slot)}" data-group-id="${h(group.id)}" aria-label="${h(slot)} 교실">
-                ${["", ...state.settings.rooms].filter(unique).map((room) => renderOption(room, group.room, "교실 선택")).join("")}
-              </select>
-            </td>
+            ${
+              programSpans[index] > 0
+                ? `<td rowspan="${programSpans[index]}">
+                    <select data-schedule-group-field="room" data-slot="${h(slot)}" data-group-id="${h(group.id)}" data-merged-group-ids="${h(mergedProgramIds)}" aria-label="${h(slot)} 교실">
+                      ${["", ...state.settings.rooms].filter(unique).map((room) => renderOption(room, group.room, "교실 선택")).join("")}
+                    </select>
+                  </td>`
+                : ""
+            }
             <td>
               ${renderTeacherMultiSelect(slot, group, blockedTeachers)}
               <div class="group-actions">
@@ -1524,7 +1599,7 @@
     const selected = new Set(normalizeUserList(group.users));
     const usedByOtherGroups = new Set(groups.filter((item) => item.id !== group.id).flatMap((item) => normalizeUserList(item.users)));
     const allowedGroups = allowedUserGroupsForSlot(slot);
-    const absentUsers = isAftercareSlot(slot) ? absentAftercareUsers(date) : new Set();
+    const absentUsers = absentAftercareUsers(date);
 
     return `
       <div class="people-picker" data-schedule-group data-slot="${h(slot)}" data-group-id="${h(group.id)}">
@@ -2196,7 +2271,7 @@
 
     state.settings.timeSlots.forEach((slot, index) => {
       if (index === 0) {
-        rows.push(renderScheduleServiceBand("주간 활동 서비스", dayScheduleRangeLabel()));
+        rows.push(renderScheduleServiceBand("주간 활동 서비스", dayScheduleRangeLabel(), "", renderDayServiceBandSummary(date, { showEmpty: false })));
       }
 
       if (isAftercareSlot(slot) && !aftercareBandAdded) {
@@ -2267,7 +2342,7 @@
           <tr class="${aftercare ? "aftercare-row" : "day-row"}">
             ${index === 0 ? `<th class="time-label" rowspan="${rowSpan}">${formatSlotLabel(slot)}</th>` : ""}
             ${programSpans[index] > 0 ? `<td rowspan="${programSpans[index]}">${h(group.program || "")}</td>` : ""}
-            <td>${h(group.room || "")}</td>
+            ${programSpans[index] > 0 ? `<td rowspan="${programSpans[index]}">${h(group.room || "")}</td>` : ""}
             <td>${teacherBadgeList(groupTeacherList(group), "")}</td>
             <td>${h(normalizeUserList(group.users).join(", "))}</td>
             ${
@@ -3247,6 +3322,19 @@
     renderVacation();
   }
 
+  function clearTransportDate(date) {
+    const before = state.vacationTransport.length;
+    state.vacationTransport = state.vacationTransport.filter((entry) => entry.date !== date);
+
+    if (state.vacationTransport.length === before) {
+      setSyncStatus("삭제할 휴가·송영 정보가 없습니다.");
+      return;
+    }
+
+    saveState("해당 날짜의 휴가·송영 정보를 삭제했습니다.");
+    renderVacation();
+  }
+
   function copyTransportDateToDate(sourceDate, targetDate) {
     if (!sourceDate || !targetDate || sourceDate === targetDate || isClosedDate(targetDate)) return;
 
@@ -3421,11 +3509,11 @@
     const group = findScheduleGroup(dailyDate, slot, groupId);
 
     if (!group) return;
-    if (field === "program" && target.dataset.mergedGroupIds) {
+    if (["program", "room"].includes(field) && target.dataset.mergedGroupIds) {
       const mergedIds = target.dataset.mergedGroupIds.split(",").filter(Boolean);
       mergedIds.forEach((id) => {
         const mergedGroup = findScheduleGroup(dailyDate, slot, id);
-        if (mergedGroup) mergedGroup.program = target.value;
+        if (mergedGroup) mergedGroup[field] = target.value;
       });
     } else if (field === "teachers") {
       setGroupTeachers(
@@ -3566,6 +3654,32 @@
     info.items = info.items.filter((item) => !itemIds.includes(item.id));
     setAftercareInfo(dailyDate, info);
     saveState("등하원 정보가 삭제되었습니다.");
+    renderDaily();
+  }
+
+  function updateDayAbsentUsers(target) {
+    const wrapper = target.closest("[data-day-absent-picker]");
+    if (!wrapper) return;
+
+    const selectedUsers = Array.from(wrapper.querySelectorAll("[data-day-absent-user]:checked"))
+      .map((input) => cleanSelectValue(input.value))
+      .filter(Boolean)
+      .filter(unique);
+    const info = getAftercareInfo(dailyDate);
+    const existingIds = new Map(info.items.filter((item) => item.type === "결석").map((item) => [item.user, item.id]));
+
+    info.items = [
+      ...info.items.filter((item) => item.type !== "결석"),
+      ...selectedUsers.map((user) => ({
+        id: existingIds.get(user) || uid("aftercare"),
+        type: "결석",
+        user,
+        time: ""
+      }))
+    ];
+
+    setAftercareInfo(dailyDate, info);
+    saveState("주간 결석 이용인이 저장되었습니다.");
     renderDaily();
   }
 
@@ -4097,7 +4211,7 @@
 
   function setAftercareInfo(date, info) {
     const normalized = normalizeAfterInfo(info);
-    (state.settings.timeSlots || []).filter(isAftercareSlot).forEach((slot) => {
+    (state.settings.timeSlots || []).forEach((slot) => {
       const slotRecord = getScheduleSlot(date, slot);
       slotRecord.afterInfo = normalized;
       state.dailySchedules[date][slot] = sanitizeScheduleSlot(slotRecord, slot);
@@ -4233,13 +4347,29 @@
   }
 
   function shortProgramLabel(program) {
-    return `${program.major}${program.topic ? ` · ${program.topic}` : ""}${Number(program.session) > 1 ? ` ${program.session}차시` : ""}`;
+    const major = cleanSelectValue(program.major) || "프로그램";
+    const topic = cleanSelectValue(program.topic);
+    return `${major}${topic ? ` · ${topic}` : ""}${programSessionSuffix(program)}`;
+  }
+
+  function programSessionSuffix(program) {
+    const session = Number(program.session) || 1;
+    return session > 1 ? ` (${session}차시)` : "";
   }
 
   function renderProgramChip(program, attributes = "") {
     const session = Math.max(1, Number(program.session) || 1);
     const span = Math.min(session, 3);
-    return `<span class="chip program-chip category-${h(program.category)} session-${span}" style="--session-span: ${span}" ${attributes}>${h(shortProgramLabel(program))}</span>`;
+    const major = cleanSelectValue(program.major) || "프로그램";
+    const topic = cleanSelectValue(program.topic);
+    const suffix = programSessionSuffix(program).trim();
+    const secondLine = [`${topic ? `(${topic})` : ""}`, suffix].filter(Boolean).join(" ");
+    return `
+      <span class="chip program-chip category-${h(program.category)} session-${span}" style="--session-span: ${span}" title="${h(shortProgramLabel(program))}" ${attributes}>
+        <span class="program-chip-major">${h(major)}</span>
+        ${secondLine ? `<span class="program-chip-topic">${h(secondLine)}</span>` : ""}
+      </span>
+    `;
   }
 
   function shortMoveLabel(item) {
@@ -4389,6 +4519,14 @@
     const moveDay = event.target.closest("[data-open-move-date]");
     if (moveDay) {
       openMoveModal(moveDay.dataset.openMoveDate);
+      return;
+    }
+
+    const clearTransportButton = event.target.closest("[data-clear-transport-date]");
+    if (clearTransportButton) {
+      const ok = window.confirm("이 날짜의 휴가·송영 정보를 모두 삭제할까요?");
+      if (!ok) return;
+      clearTransportDate(clearTransportButton.dataset.clearTransportDate);
       return;
     }
 
@@ -4694,6 +4832,11 @@
 
     if (target.matches("[data-aftercare-field]")) {
       updateScheduleAftercare(target);
+      return;
+    }
+
+    if (target.matches("[data-day-absent-user]")) {
+      updateDayAbsentUsers(target);
       return;
     }
   });

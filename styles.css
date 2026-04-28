@@ -676,6 +676,30 @@ button {
 
 .program-chip {
   min-height: calc(38px * var(--session-span, 1));
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  text-align: center;
+}
+
+.program-chip-major,
+.program-chip-topic {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.18;
+}
+
+.program-chip-topic {
+  font-size: 0.74rem;
 }
 
 .chip[draggable="true"] {
@@ -855,16 +879,74 @@ button {
   position: static;
 }
 
+.transport-clear-button {
+  min-width: 20px;
+  height: 20px;
+  border: 1px solid #e1aaa5;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: #fff4f2;
+  color: #9f2d25;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .transport-chip-list {
-  display: grid;
+  min-height: 26px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
   gap: 3px;
 }
 
 .transport-entry-chip {
-  min-height: 26px;
+  flex: 1 1 58px;
+  min-width: 0;
+  min-height: 24px;
   justify-content: center;
-  padding: 3px 6px;
-  font-size: 0.72rem;
+  gap: 2px;
+  padding: 3px 5px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.transport-entry-chip.note-row {
+  border-color: #e2cf75;
+  background: #fff7c7;
+}
+
+.transport-entry-chip.half-row {
+  border-color: #a8d4f0;
+  background: #d9f0ff;
+}
+
+.transport-entry-chip.day-route {
+  border-color: #9edfc8;
+  background: #ccf1e3;
+}
+
+.transport-entry-chip.after-route {
+  border-color: #dab7e3;
+  background: #ead7ef;
+}
+
+.transport-entry-chip .teacher-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.transport-entry-chip small {
+  color: #4b5563;
+  font-size: 0.64rem;
+  font-weight: 700;
 }
 
 .mini-copy-button {
@@ -910,21 +992,25 @@ button {
 
 .transport-table .note-row th,
 .transport-table .note-row td {
+  height: 34px;
   background: #fff7c7;
 }
 
 .transport-table .half-row th,
 .transport-table .half-row td {
+  height: 34px;
   background: #d9f0ff;
 }
 
 .transport-table .day-route th,
 .transport-table .day-route td {
+  height: 34px;
   background: #ccf1e3;
 }
 
 .transport-table .after-route th,
 .transport-table .after-route td {
+  height: 34px;
   background: #ead7ef;
 }
 
@@ -1121,6 +1207,97 @@ button {
   background: #fff3bf;
   color: var(--navy);
   font-size: 1rem;
+  text-align: center;
+}
+
+.service-band-content {
+  position: relative;
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.service-band-title {
+  font-weight: 900;
+}
+
+.service-band-content .service-band-title {
+  justify-self: center;
+}
+
+.service-band-summary {
+  justify-self: end;
+  width: auto;
+  max-width: min(58vw, 860px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.service-band-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid rgba(23, 64, 100, 0.16);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.56);
+  white-space: nowrap;
+}
+
+.service-band-summary-item.has-picker {
+  align-items: flex-start;
+  white-space: normal;
+}
+
+.service-band-summary-item b {
+  font-size: 0.78rem;
+  color: #49657f;
+}
+
+.service-band-summary .teacher-badge-list {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.service-band-user-picker {
+  width: 140px;
+  max-height: 74px;
+  overflow: auto;
+  display: grid;
+  gap: 4px;
+  padding: 4px 5px;
+  border: 1px solid rgba(23, 64, 100, 0.18);
+  border-radius: 5px;
+  background: #fff;
+}
+
+.service-band-user-picker .check-row {
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.service-band-user-picker input {
+  flex: 0 0 15px;
+}
+
+.service-band-user-picker span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .schedule-editor-table .service-band.aftercare-band th,
@@ -1533,7 +1710,8 @@ button {
 .aftercare-print {
   display: grid;
   gap: 3px;
-  text-align: left;
+  justify-items: center;
+  text-align: center;
 }
 
 .aftercare-print strong {
@@ -1627,9 +1805,15 @@ button {
 }
 
 .teacher-report-print .report-teacher-name {
-  width: 18%;
+  width: 12%;
   font-weight: 800;
   text-align: center;
+  white-space: nowrap;
+}
+
+.teacher-report-print td:not(.report-teacher-name) {
+  width: 38%;
+  text-align: left;
 }
 
 .teacher-picker {
@@ -1998,8 +2182,13 @@ button {
 .print-timetable tbody td {
   min-height: 30px;
   padding: 7px 8px;
+  text-align: center;
   word-break: keep-all;
   overflow-wrap: anywhere;
+}
+
+.print-timetable .teacher-badge-list {
+  justify-content: center;
 }
 
 .people-management-grid {
@@ -2570,6 +2759,26 @@ button {
     color: #17324d;
   }
 
+  body.printing-schedule .service-band-content {
+    min-height: 8mm;
+  }
+
+  body.printing-schedule .service-band-summary {
+    width: 56%;
+    gap: 1mm;
+    font-size: 5.6pt;
+  }
+
+  body.printing-schedule .service-band-summary-item {
+    min-height: 0;
+    padding: 0.6mm 1.2mm;
+    border-radius: 1.5mm;
+  }
+
+  body.printing-schedule .service-band-summary-item b {
+    font-size: 5.4pt;
+  }
+
   body.printing-schedule .print-timetable tbody th,
   body.printing-schedule .print-timetable tbody td {
     padding: 1.6mm 1.3mm;
@@ -2586,7 +2795,11 @@ button {
   }
 
   body.printing-schedule .teacher-report-print .report-teacher-name {
-    width: 16%;
+    width: 11%;
+  }
+
+  body.printing-schedule .teacher-report-print td:not(.report-teacher-name) {
+    width: 39%;
   }
 
   body.printing-monthly,
@@ -2655,7 +2868,8 @@ button {
 
   body.printing-monthly .add-dot,
   body.printing-transport .add-dot,
-  body.printing-transport .mini-copy-button {
+  body.printing-transport .mini-copy-button,
+  body.printing-transport .transport-clear-button {
     display: none !important;
   }
 
