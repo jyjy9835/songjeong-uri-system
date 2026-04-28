@@ -856,6 +856,12 @@
           <button class="ghost-button" data-month-action="today" type="button">이번 달</button>
         </div>
         <div class="toolbar-right">
+          <label class="monthly-print-control">
+            <span>인쇄 범위</span>
+            <select id="monthly-print-target">
+              ${SERVICE_CALENDARS.map((calendar) => `<option value="${h(calendar.key)}">${h(calendar.title)}</option>`).join("")}
+            </select>
+          </label>
           <button class="primary-button" data-print-monthly type="button">월간 인쇄</button>
           <span class="muted">공휴일과 휴무일에는 프로그램을 등록하지 않습니다.</span>
         </div>
@@ -906,15 +912,22 @@
         const canOpen = allowed;
         const items = programsForDate(iso).filter((program) => programMatchesCalendar(program, calendar, iso));
         const splitGroups = calendar.service === "주간";
+        const dayTopNotes = [
+          holiday ? `<span class="holiday-label day-top-holiday">${h(holiday)}</span>` : "",
+          customClosed ? `<button class="holiday-label closed-cancel day-top-holiday" data-toggle-closed-date="${h(iso)}" type="button">휴무 취소</button>` : ""
+        ]
+          .filter(Boolean)
+          .join("");
 
         return `
           <div class="day-cell program-day ${outside ? "outside" : ""} ${isToday ? "today" : ""} ${closed ? "closed" : ""} ${!allowed ? "disabled" : ""}" ${canOpen ? `data-program-drop-date="${h(iso)}" data-program-drop-service="${h(calendar.service)}"` : ""}>
             <div class="day-top">
               <span class="day-number">${date.getDate()}</span>
-              ${canOpen ? `<button class="add-dot" data-open-program-date="${h(iso)}" data-program-service="${h(calendar.service)}" type="button">+</button>` : ""}
+              <span class="day-top-meta">
+                ${dayTopNotes}
+                ${canOpen ? `<button class="add-dot" data-open-program-date="${h(iso)}" data-program-service="${h(calendar.service)}" type="button">+</button>` : ""}
+              </span>
             </div>
-            ${holiday ? `<div class="holiday-label">${h(holiday)}</div>` : ""}
-            ${customClosed ? `<button class="holiday-label closed-cancel" data-toggle-closed-date="${h(iso)}" type="button">휴무 취소</button>` : ""}
             ${renderProgramPeriodGrid(items, splitGroups)}
           </div>
         `;
@@ -922,7 +935,12 @@
       .join("");
 
     return `
-      <section class="service-calendar">
+      <section class="service-calendar" data-service-calendar="${h(calendar.key)}">
+        <div class="monthly-print-logo-wrap">
+          <img src="${h(CENTER_LOGO_SRC)}" alt="송정우리 로고" />
+          <strong>송정우리 ${h(calendar.title)}</strong>
+          <span>${h(formatMonth(cursor))}</span>
+        </div>
         <div class="service-calendar-head">
           <h3>${h(calendar.title)}</h3>
           <span>${h(formatMonth(cursor))}</span>
@@ -2684,18 +2702,7 @@
                 ${
                   programs.length
                     ? `<div class="list">${programs
-                        .map(
-                          (program) => `
-                            <article class="list-item">
-                              <strong>${h(program.major)}${program.topic ? ` · ${h(program.topic)}` : ""}</strong>
-                              <small>${h(programMetaLabel(program))}</small>
-                              ${program.topic ? "" : renderProgramTopicEditor(program, date, selectedService)}
-                              <div class="list-item-actions">
-                                <button class="danger-button" data-delete-program="${h(program.id)}" data-program-date="${h(date)}" data-program-service="${h(selectedService)}" type="button">삭제</button>
-                              </div>
-                            </article>
-                          `
-                        )
+                        .map((program) => renderRegisteredProgramEditor(program, date, selectedService))
                         .join("")}</div>`
                     : `<div class="empty">이 날짜에는 등록된 프로그램이 없습니다.</div>`
                 }
@@ -2704,6 +2711,58 @@
           </div>
         </section>
       </div>
+    `;
+  }
+
+  function renderRegisteredProgramEditor(program, date, selectedService) {
+    const group = normalizeProgramGroup(program.group);
+    const service = normalizeServiceName(program.service || selectedService);
+
+    return `
+      <article class="list-item registered-program-item">
+        <form class="registered-program-form" data-program-update-form>
+          <input name="programId" type="hidden" value="${h(program.id)}" />
+          <input name="date" type="hidden" value="${h(date)}" />
+          <div class="registered-program-summary">
+            <strong>${h(shortProgramLabel(program))}</strong>
+            <small>${h(programMetaLabel(program, { service: true }))}</small>
+          </div>
+          <div class="registered-program-grid">
+            <label class="field">
+              <span>구분</span>
+              <select name="service">
+                ${SERVICE_CALENDARS.map((calendar) => `<option value="${h(calendar.service)}" ${calendar.service === service ? "selected" : ""}>${h(calendar.title)}</option>`).join("")}
+              </select>
+            </label>
+            <label class="field">
+              <span>대주제</span>
+              <input name="major" list="major-theme-options" value="${h(program.major || "")}" required />
+            </label>
+            <label class="field">
+              <span>소주제</span>
+              <input name="topic" value="${h(program.topic || "")}" placeholder="소주제 입력" />
+            </label>
+            <label class="field">
+              <span>교시</span>
+              <input name="period" type="number" min="1" max="99" value="${h(normalizeProgramPeriod(program.period) || 1)}" required />
+            </label>
+            <label class="field">
+              <span>차시</span>
+              <input name="session" type="number" min="1" max="99" value="${h(normalizeProgramDuration(program.session))}" required />
+            </label>
+            <label class="field">
+              <span>그룹</span>
+              <select name="group">
+                ${PROGRAM_GROUPS.map((item) => `<option value="${h(item.key)}" ${item.key === group ? "selected" : ""}>${h(item.label)}</option>`).join("")}
+              </select>
+            </label>
+          </div>
+          <div class="list-item-actions registered-program-actions">
+            <button class="ghost-button" type="submit">수정 저장</button>
+            <button class="danger-button" data-delete-program="${h(program.id)}" data-program-date="${h(date)}" data-program-service="${h(selectedService)}" type="button">삭제</button>
+          </div>
+        </form>
+      </article>
     `;
   }
 
@@ -2919,21 +2978,54 @@
       room: ""
     });
 
-    if (program.major && !state.majorThemes.includes(program.major)) {
-      state.majorThemes.push(program.major);
-      state.majorThemeCategories = normalizeMajorThemeCategories(
-        {
-          ...state.majorThemeCategories,
-          [program.major]: program.category
-        },
-        state.majorThemes
-      );
-    }
+    ensureProgramMajorTheme(program.major, program.category);
 
     state.monthlyPrograms.push(program);
     saveState("프로그램이 추가되었습니다.");
     render();
     openProgramModal(program.date, program.service);
+  }
+
+  function ensureProgramMajorTheme(major, category) {
+    const theme = cleanSelectValue(major);
+    if (!theme) return;
+    if (!state.majorThemes.includes(theme)) state.majorThemes.push(theme);
+    state.majorThemeCategories = normalizeMajorThemeCategories(
+      {
+        ...state.majorThemeCategories,
+        [theme]: category
+      },
+      state.majorThemes
+    );
+  }
+
+  function handleProgramUpdate(form) {
+    const data = new FormData(form);
+    const programId = String(data.get("programId") || "");
+    const index = state.monthlyPrograms.findIndex((item) => item.id === programId);
+    if (index < 0) return;
+
+    const current = state.monthlyPrograms[index];
+    const major = String(data.get("major") || "").trim();
+    const topic = String(data.get("topic") || "").trim();
+    const service = normalizeServiceName(data.get("service") || current.service);
+    const category = categoryForMajorTheme(major, topic);
+    const updated = normalizeProgram({
+      ...current,
+      category,
+      major,
+      topic,
+      period: Number(data.get("period") || current.period || 1),
+      session: Number(data.get("session") || current.session || 1),
+      service,
+      group: service === "주간" ? data.get("group") : "all"
+    });
+
+    ensureProgramMajorTheme(updated.major, updated.category);
+    state.monthlyPrograms[index] = updated;
+    saveState("프로그램 정보가 수정되었습니다.");
+    render();
+    openProgramModal(updated.date, updated.service);
   }
 
   function updateProgramTopic(form) {
@@ -3877,10 +3969,15 @@
   }
 
   function printMonthly() {
+    const printTarget = document.getElementById("monthly-print-target")?.value || SERVICE_CALENDARS[0].key;
+    document.body.dataset.monthlyPrintTarget = printTarget;
     document.body.classList.add("printing-monthly");
     window.setTimeout(() => {
       window.print();
-      window.setTimeout(() => document.body.classList.remove("printing-monthly"), 300);
+      window.setTimeout(() => {
+        document.body.classList.remove("printing-monthly");
+        delete document.body.dataset.monthlyPrintTarget;
+      }, 300);
     }, 0);
   }
 
@@ -4983,6 +5080,11 @@
 
     if (form.matches("[data-program-topic-form]")) {
       updateProgramTopic(form);
+      return;
+    }
+
+    if (form.matches("[data-program-update-form]")) {
+      handleProgramUpdate(form);
       return;
     }
 

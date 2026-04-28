@@ -555,8 +555,22 @@ button {
   margin-bottom: 7px;
 }
 
+.program-day .day-top {
+  min-height: 26px;
+  margin-bottom: 6px;
+}
+
 .day-number {
   font-weight: 800;
+}
+
+.day-top-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
 }
 
 .add-dot {
@@ -609,6 +623,20 @@ button {
   text-decoration: underline;
 }
 
+.program-day .day-top .holiday-label {
+  max-width: calc(100% - 30px);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.program-day .day-top .closed-cancel {
+  text-align: right;
+}
+
 .service-calendar-stack {
   display: grid;
   gap: 18px;
@@ -620,6 +648,29 @@ button {
   background: var(--panel);
   overflow: hidden;
   box-shadow: var(--shadow);
+}
+
+.monthly-print-logo-wrap {
+  display: none;
+}
+
+.monthly-print-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.monthly-print-control select {
+  width: 210px;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
 }
 
 .service-calendar-head {
@@ -704,16 +755,17 @@ button {
   justify-content: center;
   gap: 2px;
   overflow: hidden;
-  white-space: nowrap;
+  white-space: normal;
   word-break: keep-all;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
   text-align: center;
+  line-height: 1.08;
 }
 
 .program-period-grid .program-chip {
   height: 100%;
   min-height: 34px;
-  padding: 4px 6px;
+  padding: 3px 4px;
 }
 
 .split-program-chip-list .program-chip.group-all {
@@ -762,14 +814,26 @@ button {
   display: block;
   width: 100%;
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.18;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.05;
+}
+
+.program-chip-major {
+  font-size: 0.72rem;
 }
 
 .program-chip-topic {
-  font-size: 0.74rem;
+  font-size: 0.62rem;
+}
+
+.split-program-period-grid .program-chip-major {
+  font-size: 0.68rem;
+}
+
+.split-program-period-grid .program-chip-topic {
+  font-size: 0.56rem;
 }
 
 .chip[draggable="true"] {
@@ -1138,6 +1202,36 @@ button {
 .list-item small,
 .muted {
   color: var(--muted);
+}
+
+.registered-program-item {
+  align-items: stretch;
+}
+
+.registered-program-form {
+  display: grid;
+  gap: 10px;
+}
+
+.registered-program-summary {
+  display: grid;
+  gap: 3px;
+}
+
+.registered-program-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.registered-program-grid .field span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.registered-program-actions {
+  justify-content: flex-end;
 }
 
 .empty {
@@ -2776,6 +2870,7 @@ button {
   .settings-grid,
   .field-grid,
   .field-grid.three,
+  .registered-program-grid,
   .move-bulk-editor,
   .move-teacher-grid {
     grid-template-columns: 1fr;
@@ -2980,15 +3075,41 @@ button {
 
   body.printing-monthly .service-calendar {
     width: 100%;
-    min-height: 280mm;
+    min-height: 0;
     margin: 0;
     border: 0;
     box-shadow: none;
-    page-break-after: always;
+    page-break-after: auto;
   }
 
-  body.printing-monthly .service-calendar:last-child {
-    page-break-after: auto;
+  body.printing-monthly[data-monthly-print-target="day"] .service-calendar:not([data-service-calendar="day"]),
+  body.printing-monthly[data-monthly-print-target="afterMonTueThuSat"] .service-calendar:not([data-service-calendar="afterMonTueThuSat"]),
+  body.printing-monthly[data-monthly-print-target="afterWedFriSat"] .service-calendar:not([data-service-calendar="afterWedFriSat"]) {
+    display: none !important;
+  }
+
+  body.printing-monthly .monthly-print-logo-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1mm;
+    margin: 0 0 4mm;
+    text-align: center;
+  }
+
+  body.printing-monthly .monthly-print-logo-wrap img {
+    width: 17mm;
+    height: 17mm;
+    object-fit: contain;
+  }
+
+  body.printing-monthly .monthly-print-logo-wrap strong {
+    font-size: 14pt;
+  }
+
+  body.printing-monthly .monthly-print-logo-wrap span {
+    color: #667085;
+    font-size: 10pt;
   }
 
   body.printing-monthly .service-calendar-head {
@@ -3009,6 +3130,36 @@ button {
     min-height: 9mm;
     padding: 1.2mm 1.5mm;
     font-size: 7.8pt;
+  }
+
+  body.printing-monthly .program-chip {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.05;
+  }
+
+  body.printing-monthly .program-chip-major,
+  body.printing-monthly .program-chip-topic {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    line-height: 1.05;
+  }
+
+  body.printing-monthly .program-chip-major {
+    font-size: 7.2pt;
+  }
+
+  body.printing-monthly .program-chip-topic {
+    font-size: 6.2pt;
+  }
+
+  body.printing-monthly .split-program-period-grid .program-chip-major {
+    font-size: 6.5pt;
+  }
+
+  body.printing-monthly .split-program-period-grid .program-chip-topic {
+    font-size: 5.7pt;
   }
 
   body.printing-monthly .add-dot,
