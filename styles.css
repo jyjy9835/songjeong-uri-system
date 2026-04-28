@@ -1212,11 +1212,7 @@ button {
 
 .service-band-content {
   position: relative;
-  min-height: 54px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
+  min-height: 124px;
 }
 
 .service-band-title {
@@ -1224,73 +1220,138 @@ button {
 }
 
 .service-band-content .service-band-title {
-  justify-self: center;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: max-content;
+  max-width: 42%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  white-space: normal;
 }
 
 .service-band-summary {
-  justify-self: end;
-  width: auto;
-  max-width: min(58vw, 860px);
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 5px;
-  font-size: 0.82rem;
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  z-index: 2;
+  width: 250px;
+  max-width: 32%;
+  transform: translateY(-50%);
+  display: grid;
+  grid-auto-rows: 36px;
+  gap: 6px;
+  font-size: 0.78rem;
   line-height: 1.2;
 }
 
 .service-band-summary-item {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  max-width: 100%;
-  min-height: 30px;
-  padding: 4px 8px;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 7px;
   border: 1px solid rgba(23, 64, 100, 0.16);
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.56);
+  text-align: center;
   white-space: nowrap;
+  overflow: hidden;
 }
 
 .service-band-summary-item.has-picker {
-  align-items: flex-start;
-  white-space: normal;
+  position: relative;
+  overflow: visible;
+  white-space: nowrap;
 }
 
 .service-band-summary-item b {
+  flex: 0 0 auto;
   font-size: 0.78rem;
   color: #49657f;
+  text-align: center;
+}
+
+.service-band-summary-value {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-band-summary-item.has-picker .service-band-summary-value {
+  overflow: visible;
 }
 
 .service-band-summary .teacher-badge-list {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.service-band-user-select {
+  position: relative;
   display: inline-flex;
-  gap: 5px;
+  justify-content: center;
+  min-width: 0;
+}
+
+.service-band-picker-button {
+  width: 88px;
+  min-height: 26px;
+  border: 1px solid rgba(23, 64, 100, 0.2);
+  border-radius: 5px;
+  padding: 0 8px;
+  background: #fff;
+  color: var(--navy);
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .service-band-user-picker {
-  width: 140px;
-  max-height: 74px;
-  overflow: auto;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: 210px;
+  max-height: 180px;
+  overflow-x: hidden;
+  overflow-y: auto;
   display: grid;
   gap: 4px;
-  padding: 4px 5px;
+  padding: 8px;
   border: 1px solid rgba(23, 64, 100, 0.18);
   border-radius: 5px;
   background: #fff;
+  box-shadow: 0 14px 32px rgba(15, 35, 55, 0.18);
 }
 
 .service-band-user-picker .check-row {
-  min-height: 22px;
+  min-height: 28px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-start;
+  gap: 8px;
   color: var(--ink);
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   font-weight: 700;
 }
 
 .service-band-user-picker input {
-  flex: 0 0 15px;
+  flex: 0 0 16px;
 }
 
 .service-band-user-picker span {
@@ -2760,23 +2821,37 @@ button {
   }
 
   body.printing-schedule .service-band-content {
-    min-height: 8mm;
+    min-height: 18mm;
   }
 
   body.printing-schedule .service-band-summary {
-    width: 56%;
-    gap: 1mm;
-    font-size: 5.6pt;
+    width: 34mm;
+    max-width: 32%;
+    grid-auto-rows: 4.8mm;
+    gap: 0.8mm;
+    font-size: 5.2pt;
   }
 
   body.printing-schedule .service-band-summary-item {
     min-height: 0;
-    padding: 0.6mm 1.2mm;
+    height: 4.8mm;
+    gap: 1mm;
+    padding: 0 1mm;
     border-radius: 1.5mm;
   }
 
   body.printing-schedule .service-band-summary-item b {
-    font-size: 5.4pt;
+    font-size: 5pt;
+  }
+
+  body.printing-schedule .service-band-user-picker {
+    max-height: 3.8mm;
+    padding: 0.3mm 0.7mm;
+  }
+
+  body.printing-schedule .service-band-user-picker .check-row {
+    min-height: 3.3mm;
+    font-size: 5pt;
   }
 
   body.printing-schedule .print-timetable tbody th,

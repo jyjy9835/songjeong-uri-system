@@ -125,6 +125,7 @@
   let dailyDate = todayIso;
   let selectedTodayTeacher = "";
   let supportNoteEditor = null;
+  let dayAbsentPickerOpen = false;
   let programDragId = "";
   let transportDragDate = "";
   let transportCopyFilter = "all";
@@ -1245,8 +1246,8 @@
     const vacationTeachers = Array.from(vacationTeachersForDate(date));
     const absentUsers = Array.from(absentAftercareUsers(date)).map(cleanSelectValue).filter(Boolean).filter(unique);
     const summaryItems = [
-      { label: "등원 송영 담당자", value: teacherBadgeList(inboundTeachers, "없음"), hasValue: inboundTeachers.length > 0 },
-      { label: "휴가인원", value: teacherBadgeList(vacationTeachers, "없음"), hasValue: vacationTeachers.length > 0 },
+      { label: "등원 송영 담당", value: teacherBadgeList(inboundTeachers, "없음"), hasValue: inboundTeachers.length > 0 },
+      { label: "휴가 교사", value: teacherBadgeList(vacationTeachers, "없음"), hasValue: vacationTeachers.length > 0 },
       {
         label: "주간 결석 이용인",
         value: interactive ? renderDayAbsentUserPicker(absentUsers) : absentUsers.map(h).join(", ") || "없음",
@@ -1264,7 +1265,7 @@
             (item) => `
               <span class="service-band-summary-item ${h(item.className || "")}">
                 <b>${h(item.label)}</b>
-                <span>${item.value}</span>
+                <span class="service-band-summary-value">${item.value}</span>
               </span>
             `
           )
@@ -1279,18 +1280,32 @@
 
     if (!users.length) return `<span class="muted">등록된 이용인 없음</span>`;
 
+    const selectedLabel = absentUsers.length ? `${absentUsers.length}명 선택` : "선택";
+
     return `
-      <span class="service-band-user-picker" data-day-absent-picker aria-label="주간 결석 이용인 선택">
-        ${users
-          .map(
-            (user) => `
-              <label class="check-row">
-                <input data-day-absent-user type="checkbox" value="${h(user)}" ${selected.has(user) ? "checked" : ""} />
-                <span>${h(user)}</span>
-              </label>
+      <span class="service-band-user-select ${dayAbsentPickerOpen ? "open" : ""}" data-day-absent-picker aria-label="주간 결석 이용인 선택">
+        <button class="service-band-picker-button" data-toggle-day-absent-picker type="button" aria-expanded="${dayAbsentPickerOpen ? "true" : "false"}">
+          <span>${h(selectedLabel)}</span>
+          <span aria-hidden="true">▾</span>
+        </button>
+        ${
+          dayAbsentPickerOpen
+            ? `
+              <span class="service-band-user-picker" role="group" aria-label="주간 결석 이용인 목록">
+                ${users
+                  .map(
+                    (user) => `
+                      <label class="check-row">
+                        <input data-day-absent-user type="checkbox" value="${h(user)}" ${selected.has(user) ? "checked" : ""} />
+                        <span>${h(user)}</span>
+                      </label>
+                    `
+                  )
+                  .join("")}
+              </span>
             `
-          )
-          .join("")}
+            : ""
+        }
       </span>
     `;
   }
@@ -3661,6 +3676,7 @@
     const wrapper = target.closest("[data-day-absent-picker]");
     if (!wrapper) return;
 
+    dayAbsentPickerOpen = true;
     const selectedUsers = Array.from(wrapper.querySelectorAll("[data-day-absent-user]:checked"))
       .map((input) => cleanSelectValue(input.value))
       .filter(Boolean)
@@ -4543,6 +4559,13 @@
       return;
     }
 
+    const dayAbsentPickerButton = event.target.closest("[data-toggle-day-absent-picker]");
+    if (dayAbsentPickerButton) {
+      dayAbsentPickerOpen = !dayAbsentPickerOpen;
+      renderDaily();
+      return;
+    }
+
     const todayTeacherButton = event.target.closest("[data-select-today-teacher]");
     if (todayTeacherButton) {
       selectedTodayTeacher = todayTeacherButton.dataset.selectTodayTeacher || "";
@@ -4785,6 +4808,7 @@
 
     if (target.id === "daily-date") {
       dailyDate = target.value || todayIso;
+      dayAbsentPickerOpen = false;
       renderDaily();
       return;
     }
