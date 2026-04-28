@@ -50,6 +50,12 @@
     { key: "afterMonTueThuSat", title: "방과후(월화목토) 프로그램", service: "방과후(월화목토)", allowedDays: [1, 2, 4, 6] },
     { key: "afterWedFriSat", title: "방과후(수금토) 프로그램", service: "방과후(수금토)", allowedDays: [3, 5, 6] }
   ];
+  const PROGRAM_GROUPS = [
+    { key: "all", label: "전체 대상" },
+    { key: "A", label: "A그룹" },
+    { key: "B", label: "B그룹" }
+  ];
+  const DEFAULT_PROGRAM_PERIOD_COUNT = 4;
   const MOVE_TYPES = [
     { key: "vacation", label: "휴가", className: "note-row" },
     { key: "morningHalf", label: "오전 반차", className: "half-row" },
@@ -454,14 +460,17 @@
   }
 
   function normalizeProgram(program) {
+    const service = normalizeServiceName(program.service || "주간");
     return {
       id: program.id || uid("program"),
       date: program.date || todayIso,
       category: program.category || inferCategory(`${program.major || ""} ${program.topic || ""}`),
       major: program.major || "프로그램",
       topic: program.topic || "",
-      session: Number(program.session || 1),
-      service: normalizeServiceName(program.service || "주간"),
+      session: normalizeProgramDuration(program.session),
+      period: normalizeProgramPeriod(program.period),
+      service,
+      group: service === "주간" ? normalizeProgramGroup(program.group) : "all",
       time: program.time || "",
       teacher: program.teacher || "",
       room: program.room || ""
@@ -588,6 +597,28 @@
     if (value === "after1" || value === "방과후1" || value.includes("월화목토")) return "방과후(월화목토)";
     if (value === "after2" || value === "방과후2" || value.includes("수금토")) return "방과후(수금토)";
     return "주간";
+  }
+
+  function normalizeProgramGroup(value) {
+    const group = cleanSelectValue(value).toUpperCase();
+    if (group === "A" || group === "A그룹") return "A";
+    if (group === "B" || group === "B그룹") return "B";
+    return "all";
+  }
+
+  function normalizeProgramDuration(value) {
+    const duration = Math.floor(Number(value));
+    return Number.isFinite(duration) && duration > 0 ? duration : 1;
+  }
+
+  function normalizeProgramPeriod(value) {
+    const period = Math.floor(Number(value));
+    return Number.isFinite(period) && period > 0 ? period : 0;
+  }
+
+  function programGroupLabel(value) {
+    const group = normalizeProgramGroup(value);
+    return PROGRAM_GROUPS.find((item) => item.key === group)?.label || "전체 대상";
   }
 
   function inferCategory(text = "") {
@@ -873,7 +904,8 @@
         const closed = isClosedDate(iso);
         const allowed = calendar.allowedDays.includes(day) && !closed && !outside;
         const canOpen = allowed;
-        const items = programsForDate(iso).filter((program) => normalizeServiceName(program.service) === calendar.service);
+        const items = programsForDate(iso).filter((program) => programMatchesCalendar(program, calendar, iso));
+        const splitGroups = calendar.service === "주간";
 
         return `
           <div class="day-cell program-day ${outside ? "outside" : ""} ${isToday ? "today" : ""} ${closed ? "closed" : ""} ${!allowed ? "disabled" : ""}" ${canOpen ? `data-program-drop-date="${h(iso)}" data-program-drop-service="${h(calendar.service)}"` : ""}>
@@ -883,13 +915,7 @@
             </div>
             ${holiday ? `<div class="holiday-label">${h(holiday)}</div>` : ""}
             ${customClosed ? `<button class="holiday-label closed-cancel" data-toggle-closed-date="${h(iso)}" type="button">휴무 취소</button>` : ""}
-            <div class="chip-list">
-              ${items
-                .slice(0, 4)
-                .map((item) => renderProgramChip(item, `draggable="true" data-program-drag-id="${h(item.id)}"`))
-                .join("")}
-              ${items.length > 4 ? `<span class="chip">외 ${items.length - 4}건</span>` : ""}
-            </div>
+            ${renderProgramPeriodGrid(items, splitGroups)}
           </div>
         `;
       })
@@ -911,6 +937,110 @@
         </div>
       </section>
     `;
+  }
+
+  function serviceCalendarForService(service) {
+    const normalized = normalizeServiceName(service);
+    return SERVICE_CALENDARS.find((calendar) => calendar.service === normalized) || SERVICE_CALENDARS[0];
+  }
+
+  function programMatchesCalendar(program, calendar, date = program.date) {
+    const normalizedService = normalizeServiceName(program.service);
+    const targetDate = date || program.date;
+    if (normalizedService !== calendar.service) return false;
+    return calendar.allowedDays.includes(parseIsoDate(targetDate).getDay());
+  }
+
+  function programAllowedForDate(program, date = program.date) {
+    return programMatchesCalendar(program, serviceCalendarForService(program.service), date);
+  }
+
+  function renderProgramPeriodGrid(items, splitGroups = false) {
+    const layout = programPeriodLayout(items, splitGroups);
+    const periodRows = Array.from({ length: layout.periodCount }, (_, index) => index + 1);
+
+    return `
+      <div class="program-period-grid ${splitGroups ? "split-program-period-grid" : ""}" style="--period-count: ${layout.periodCount}; grid-template-rows: repeat(${layout.periodCount}, minmax(34px, auto));">
+        ${periodRows.map((period) => `<span class="program-period-row" style="grid-row: ${period};"></span>`).join("")}
+        ${layout.entries
+          .map((entry) =>
+            renderProgramChip(entry.program, `draggable="true" data-program-drag-id="${h(entry.program.id)}"`, {
+              period: entry.period,
+              duration: entry.duration,
+              splitGroups
+            })
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  function programPeriodLayout(items, splitGroups = false) {
+    const occupied = { left: new Set(), right: new Set() };
+    const sorted = items
+      .map((program, index) => ({ program, index, explicitPeriod: normalizeProgramPeriod(program.period) }))
+      .sort((a, b) => {
+        const periodA = a.explicitPeriod || Number.MAX_SAFE_INTEGER;
+        const periodB = b.explicitPeriod || Number.MAX_SAFE_INTEGER;
+        if (periodA !== periodB) return periodA - periodB;
+        return a.index - b.index;
+      });
+    let nextPeriod = 1;
+    let periodCount = DEFAULT_PROGRAM_PERIOD_COUNT;
+
+    const entries = sorted.map(({ program, explicitPeriod }) => {
+      const duration = normalizeProgramDuration(program.session);
+      const lanes = programPeriodLanes(program, splitGroups);
+      let period = explicitPeriod || nextPeriod;
+
+      while (periodsOverlap(period, duration, lanes, occupied)) {
+        period += 1;
+      }
+
+      markProgramPeriods(period, duration, lanes, occupied);
+      nextPeriod = Math.max(nextPeriod, period + duration);
+      periodCount = Math.max(periodCount, period + duration - 1);
+      return { program, period, duration, lanes };
+    });
+
+    entries.sort((a, b) => a.period - b.period || programGroupOrder(a.program) - programGroupOrder(b.program));
+    return { entries, periodCount };
+  }
+
+  function programPeriodLanes(program, splitGroups = false) {
+    if (!splitGroups) return ["left", "right"];
+    const group = normalizeProgramGroup(program.group);
+    if (group === "A") return ["left"];
+    if (group === "B") return ["right"];
+    return ["left", "right"];
+  }
+
+  function periodsOverlap(period, duration, lanes, occupied) {
+    for (let offset = 0; offset < duration; offset += 1) {
+      const targetPeriod = period + offset;
+      if (lanes.some((lane) => occupied[lane]?.has(targetPeriod))) return true;
+    }
+    return false;
+  }
+
+  function markProgramPeriods(period, duration, lanes, occupied) {
+    for (let offset = 0; offset < duration; offset += 1) {
+      const targetPeriod = period + offset;
+      lanes.forEach((lane) => occupied[lane]?.add(targetPeriod));
+    }
+  }
+
+  function programGroupOrder(program) {
+    const group = normalizeProgramGroup(program.group);
+    if (group === "A") return 0;
+    if (group === "B") return 1;
+    return 2;
+  }
+
+  function nextProgramPeriod(items, splitGroups = false) {
+    const layout = programPeriodLayout(items, splitGroups);
+    if (!layout.entries.length) return 1;
+    return Math.max(...layout.entries.map((entry) => entry.period + entry.duration));
   }
 
   function renderTransportCalendar(cursor) {
@@ -2481,11 +2611,14 @@
   }
 
   function openProgramModal(date, servicePreset = "") {
-    const programs = programsForDate(date);
     const selectedService = normalizeServiceName(servicePreset || SERVICE_CALENDARS[0].service);
+    const selectedCalendar = serviceCalendarForService(selectedService);
+    const programs = programsForDate(date).filter((program) => programMatchesCalendar(program, selectedCalendar, date));
     const closed = isClosedDate(date);
     const customClosed = isCustomClosed(date);
     const canToggleClosed = !isSundayDate(date) && !holidayName(date);
+    const isDayService = selectedService === "주간";
+    const defaultPeriod = nextProgramPeriod(programs, isDayService);
 
     modalRoot.innerHTML = `
       <div class="modal-backdrop" role="presentation">
@@ -2519,9 +2652,23 @@
                 <input name="topic" placeholder="오늘 수업 주제" />
               </label>
               <label class="field">
+                <span>교시</span>
+                <input name="period" type="number" min="1" max="99" value="${h(defaultPeriod)}" required />
+              </label>
+              <label class="field">
                 <span>차시</span>
                 <input name="session" type="number" min="1" max="99" value="1" required />
               </label>
+              ${
+                isDayService
+                  ? `<label class="field">
+                      <span>대상</span>
+                      <select name="group">
+                        ${PROGRAM_GROUPS.map((group) => `<option value="${h(group.key)}">${h(group.label)}</option>`).join("")}
+                      </select>
+                    </label>`
+                  : `<input name="group" type="hidden" value="all" />`
+              }
               <div class="field">
                 <span>&nbsp;</span>
                 <button class="primary-button" type="submit">프로그램 추가</button>
@@ -2544,7 +2691,7 @@
                               <small>${h(programMetaLabel(program))}</small>
                               ${program.topic ? "" : renderProgramTopicEditor(program, date, selectedService)}
                               <div class="list-item-actions">
-                                <button class="danger-button" data-delete-program="${h(program.id)}" data-program-date="${h(date)}" type="button">삭제</button>
+                                <button class="danger-button" data-delete-program="${h(program.id)}" data-program-date="${h(date)}" data-program-service="${h(selectedService)}" type="button">삭제</button>
                               </div>
                             </article>
                           `
@@ -2763,8 +2910,10 @@
       category: categoryForMajorTheme(major, topic),
       major,
       topic,
+      period: Number(data.get("period") || 1),
       session: Number(data.get("session") || 1),
       service: data.get("service"),
+      group: data.get("group"),
       time: "",
       teacher: "",
       room: ""
@@ -2784,7 +2933,7 @@
     state.monthlyPrograms.push(program);
     saveState("프로그램이 추가되었습니다.");
     render();
-    openProgramModal(program.date);
+    openProgramModal(program.date, program.service);
   }
 
   function updateProgramTopic(form) {
@@ -3142,7 +3291,7 @@
   }
 
   function copyProgramsToSchedule() {
-    if (!programsForDate(dailyDate).length) {
+    if (!programsForDate(dailyDate).filter((program) => programAllowedForDate(program, dailyDate)).length) {
       setSyncStatus("해당 날짜의 월간 프로그램이 없습니다.");
       return;
     }
@@ -3156,7 +3305,7 @@
 
   function seedDailyScheduleFromMonthlyPrograms(date, options = {}) {
     ensureDailySchedule(date);
-    const programs = programsForDate(date);
+    const programs = programsForDate(date).filter((program) => programAllowedForDate(program, date));
     if (!programs.length) return false;
     if (options.onlyIfEmpty && dailyScheduleHasContent(date)) return false;
 
@@ -3168,22 +3317,29 @@
       const slots = scheduleSlotsForProgramService(service);
       if (!slots.length) return;
 
-      const slotIndex = serviceIndexes[service] || 0;
-      serviceIndexes[service] = slotIndex + 1;
-      const slot = slots[slotIndex % slots.length];
-      const slotRecord = getScheduleSlot(date, slot);
-      const targetGroup = slotRecord.groups.find((group) => !scheduleGroupHasContentForSeed(group, slot)) || blankScheduleGroup();
+      const duration = normalizeProgramDuration(program.session);
+      const explicitPeriod = normalizeProgramPeriod(program.period);
+      const startIndex = explicitPeriod ? explicitPeriod - 1 : serviceIndexes[service] || 0;
+      serviceIndexes[service] = Math.max(serviceIndexes[service] || 0, startIndex + duration);
 
-      if (!slotRecord.groups.includes(targetGroup)) {
-        slotRecord.groups.push(targetGroup);
+      for (let offset = 0; offset < duration; offset += 1) {
+        const slot = slots[startIndex + offset];
+        if (!slot) continue;
+
+        const slotRecord = getScheduleSlot(date, slot);
+        const targetGroup = slotRecord.groups.find((group) => !scheduleGroupHasContentForSeed(group, slot)) || blankScheduleGroup();
+
+        if (!slotRecord.groups.includes(targetGroup)) {
+          slotRecord.groups.push(targetGroup);
+        }
+
+        targetGroup.program = programOptionLabel(program);
+        targetGroup.room = cleanSelectValue(program.room);
+        setGroupTeachers(targetGroup, program.teacher ? [program.teacher] : []);
+
+        state.dailySchedules[date][slot] = sanitizeScheduleSlot(slotRecord, slot);
+        changed = true;
       }
-
-      targetGroup.program = programOptionLabel(program);
-      targetGroup.room = cleanSelectValue(program.room);
-      setGroupTeachers(targetGroup, program.teacher ? [program.teacher] : []);
-
-      state.dailySchedules[date][slot] = sanitizeScheduleSlot(slotRecord, slot);
-      changed = true;
     });
 
     return changed;
@@ -3273,8 +3429,15 @@
   function copyMonthlyProgramToDate(programId, targetDate, targetService) {
     const source = state.monthlyPrograms.find((program) => program.id === programId);
     if (!source || !targetDate || isClosedDate(targetDate)) return;
+    const service = normalizeServiceName(targetService || source.service);
+    const targetCalendar = serviceCalendarForService(service);
 
-    if (source.date === targetDate && normalizeServiceName(source.service) === normalizeServiceName(targetService || source.service)) {
+    if (!targetCalendar.allowedDays.includes(parseIsoDate(targetDate).getDay())) {
+      setSyncStatus("해당 달력에서 사용할 수 없는 요일입니다.");
+      return;
+    }
+
+    if (source.date === targetDate && normalizeServiceName(source.service) === service) {
       setSyncStatus("같은 날짜에는 이미 해당 프로그램이 있습니다.");
       return;
     }
@@ -3284,7 +3447,8 @@
         ...source,
         id: uid("program"),
         date: targetDate,
-        service: targetService || source.service
+        service,
+        group: service === "주간" ? normalizeProgramGroup(source.group) : "all"
       })
     );
     saveState("월간 프로그램을 다른 날짜로 복사했습니다.");
@@ -3785,7 +3949,19 @@
   function programsForDate(date) {
     return state.monthlyPrograms
       .filter((program) => program.date === date)
-      .sort((a, b) => `${a.time || "99:99"}${a.service}`.localeCompare(`${b.time || "99:99"}${b.service}`));
+      .sort((a, b) => programSortKey(a).localeCompare(programSortKey(b)));
+  }
+
+  function programSortKey(program) {
+    const service = normalizeServiceName(program.service);
+    const serviceIndex = SERVICE_CALENDARS.findIndex((calendar) => calendar.service === service);
+    const period = normalizeProgramPeriod(program.period) || Number.MAX_SAFE_INTEGER;
+    return [
+      String(serviceIndex < 0 ? 99 : serviceIndex).padStart(2, "0"),
+      String(period).padStart(3, "0"),
+      String(programGroupOrder(program)).padStart(2, "0"),
+      program.time || "99:99"
+    ].join("|");
   }
 
   function movesForDate(date) {
@@ -4365,7 +4541,8 @@
   function shortProgramLabel(program) {
     const major = cleanSelectValue(program.major) || "프로그램";
     const topic = cleanSelectValue(program.topic);
-    return `${major}${topic ? ` · ${topic}` : ""}${programSessionSuffix(program)}`;
+    const group = programGroupMeta(program);
+    return `${major}${group ? ` (${group})` : ""}${topic ? ` · ${topic}` : ""}${programSessionSuffix(program)}`;
   }
 
   function programSessionSuffix(program) {
@@ -4373,19 +4550,32 @@
     return session > 1 ? ` (${session}차시)` : "";
   }
 
-  function renderProgramChip(program, attributes = "") {
-    const session = Math.max(1, Number(program.session) || 1);
-    const span = Math.min(session, 3);
+  function renderProgramChip(program, attributes = "", options = {}) {
+    const session = normalizeProgramDuration(program.session);
+    const span = Math.max(1, options.duration || session);
+    const period = normalizeProgramPeriod(options.period);
     const major = cleanSelectValue(program.major) || "프로그램";
     const topic = cleanSelectValue(program.topic);
     const suffix = programSessionSuffix(program).trim();
     const secondLine = [`${topic ? `(${topic})` : ""}`, suffix].filter(Boolean).join(" ");
+    const group = normalizeProgramGroup(program.group);
+    const groupClass = group === "A" ? "group-a" : group === "B" ? "group-b" : "group-all";
+    const groupText = programGroupMeta(program);
+    const gridStyle = period ? `grid-row: ${period} / span ${span}; grid-column: ${programGridColumn(program, options.splitGroups)};` : "";
     return `
-      <span class="chip program-chip category-${h(program.category)} session-${span}" style="--session-span: ${span}" title="${h(shortProgramLabel(program))}" ${attributes}>
-        <span class="program-chip-major">${h(major)}</span>
+      <span class="chip program-chip category-${h(program.category)} session-${span} ${groupClass}" style="--session-span: ${span}; ${gridStyle}" title="${h(shortProgramLabel(program))}" ${attributes}>
+        <span class="program-chip-major">${h(`${major}${groupText ? ` (${groupText})` : ""}`)}</span>
         ${secondLine ? `<span class="program-chip-topic">${h(secondLine)}</span>` : ""}
       </span>
     `;
+  }
+
+  function programGridColumn(program, splitGroups = false) {
+    if (!splitGroups) return "1 / -1";
+    const group = normalizeProgramGroup(program.group);
+    if (group === "A") return "1 / 2";
+    if (group === "B") return "2 / 3";
+    return "1 / -1";
   }
 
   function shortMoveLabel(item) {
@@ -4393,13 +4583,25 @@
   }
 
   function programOptionLabel(program) {
-    return `${program.major}${program.topic ? ` - ${program.topic}` : ""}${Number(program.session) > 1 ? ` (${program.session}차시)` : ""}`;
+    const group = programGroupMeta(program);
+    return `${program.major}${group ? ` (${group})` : ""}${program.topic ? ` - ${program.topic}` : ""}${Number(program.session) > 1 ? ` (${program.session}차시)` : ""}`;
   }
 
   function programMetaLabel(program, options = {}) {
-    return [categoryName(program.category), Number(program.session) > 1 ? `${program.session}차시` : "", options.service ? program.service || "구분 없음" : ""]
+    return [categoryName(program.category), programPeriodMeta(program), programGroupMeta(program), Number(program.session) > 1 ? `${program.session}차시` : "", options.service ? program.service || "구분 없음" : ""]
       .filter(Boolean)
       .join(" / ");
+  }
+
+  function programPeriodMeta(program) {
+    const period = normalizeProgramPeriod(program.period);
+    return period ? `${period}교시` : "";
+  }
+
+  function programGroupMeta(program) {
+    if (normalizeServiceName(program.service) !== "주간") return "";
+    const group = normalizeProgramGroup(program.group);
+    return group === "all" ? "" : programGroupLabel(group);
   }
 
   function addMonths(date, amount) {
@@ -4732,7 +4934,7 @@
       state.monthlyPrograms = state.monthlyPrograms.filter((program) => program.id !== deleteProgram.dataset.deleteProgram);
       saveState("프로그램이 삭제되었습니다.");
       render();
-      openProgramModal(deleteProgram.dataset.programDate);
+      openProgramModal(deleteProgram.dataset.programDate, deleteProgram.dataset.programService);
       return;
     }
 

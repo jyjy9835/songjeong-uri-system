@@ -648,12 +648,33 @@ button {
 }
 
 .program-calendar .day-cell {
-  min-height: 118px;
+  min-height: 176px;
 }
 
 .chip-list {
   display: grid;
   gap: 5px;
+}
+
+.split-program-chip-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.program-period-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(var(--period-count, 4), minmax(34px, auto));
+  gap: 5px;
+  min-height: 151px;
+}
+
+.program-period-row {
+  grid-column: 1 / -1;
+  min-height: 34px;
+  border: 1px dashed #d7e4f2;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.38);
 }
 
 .chip {
@@ -675,6 +696,8 @@ button {
 }
 
 .program-chip {
+  position: relative;
+  z-index: 1;
   min-height: calc(38px * var(--session-span, 1));
   flex-direction: column;
   align-items: center;
@@ -685,6 +708,53 @@ button {
   word-break: keep-all;
   overflow-wrap: normal;
   text-align: center;
+}
+
+.program-period-grid .program-chip {
+  height: 100%;
+  min-height: 34px;
+  padding: 4px 6px;
+}
+
+.split-program-chip-list .program-chip.group-all {
+  grid-column: 1 / -1;
+}
+
+.split-program-chip-list .program-chip.group-a {
+  grid-column: 1;
+}
+
+.split-program-chip-list .program-chip.group-b {
+  grid-column: 2;
+}
+
+.split-program-chip-list .program-chip.group-a,
+.split-program-chip-list .program-chip.group-b {
+  padding-left: 19px;
+  padding-right: 5px;
+}
+
+.split-program-period-grid .program-chip.group-a,
+.split-program-period-grid .program-chip.group-b {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.program-group-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(31, 120, 255, 0.25);
+  color: var(--navy);
+  font-size: 0.62rem;
+  line-height: 14px;
+  text-align: center;
+  font-weight: 900;
 }
 
 .program-chip-major,
