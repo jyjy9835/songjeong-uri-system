@@ -623,6 +623,28 @@ button {
   text-decoration: underline;
 }
 
+.print-only {
+  display: none;
+}
+
+body.printing-monthly .screen-only {
+  display: none !important;
+}
+
+body.printing-monthly .print-only {
+  display: inline !important;
+}
+
+body.printing-monthly .closed-cancel {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #e03131;
+  font: inherit;
+  text-decoration: none;
+  pointer-events: none;
+}
+
 .program-day .day-top .holiday-label {
   max-width: calc(100% - 30px);
   margin: 0;
@@ -699,7 +721,7 @@ button {
 }
 
 .program-calendar .day-cell {
-  min-height: 176px;
+  min-height: 228px;
 }
 
 .chip-list {
@@ -715,14 +737,14 @@ button {
 .program-period-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(var(--period-count, 4), minmax(34px, auto));
+  grid-template-rows: repeat(var(--period-count, 4), minmax(44px, auto));
   gap: 5px;
-  min-height: 151px;
+  min-height: 196px;
 }
 
 .program-period-row {
   grid-column: 1 / -1;
-  min-height: 34px;
+  min-height: 44px;
   border: 1px dashed #d7e4f2;
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.38);
@@ -764,8 +786,8 @@ button {
 
 .program-period-grid .program-chip {
   height: 100%;
-  min-height: 34px;
-  padding: 3px 4px;
+  min-height: 44px;
+  padding: 4px;
 }
 
 .split-program-chip-list .program-chip.group-all {
@@ -3079,6 +3101,8 @@ button {
     margin: 0;
     border: 0;
     box-shadow: none;
+    break-inside: avoid;
+    page-break-inside: avoid;
     page-break-after: auto;
   }
 
@@ -3117,19 +3141,42 @@ button {
     border: 0;
   }
 
+  body.printing-monthly .calendar,
+  body.printing-monthly .calendar-grid,
+  body.printing-monthly .calendar-weekdays {
+    width: 100%;
+    overflow: visible;
+  }
+
+  body.printing-monthly .calendar-grid,
+  body.printing-monthly .calendar-weekdays {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
   body.printing-monthly .program-calendar .day-cell {
-    min-height: 36mm;
-    padding: 2.2mm;
+    min-height: 30mm;
+    padding: 1.5mm;
   }
 
   body.printing-monthly .calendar-weekdays div {
-    padding: 2mm 1mm;
+    padding: 1.6mm 1mm;
   }
 
   body.printing-monthly .chip {
-    min-height: 9mm;
-    padding: 1.2mm 1.5mm;
-    font-size: 7.8pt;
+    min-height: 5.6mm;
+    padding: 0.7mm 0.8mm;
+    font-size: 6.8pt;
+  }
+
+  body.printing-monthly .program-period-grid {
+    min-height: 25mm;
+    gap: 1mm;
+    grid-template-rows: repeat(var(--period-count, 4), minmax(5.6mm, 1fr)) !important;
+  }
+
+  body.printing-monthly .program-period-row,
+  body.printing-monthly .program-period-grid .program-chip {
+    min-height: 5.6mm;
   }
 
   body.printing-monthly .program-chip {
@@ -3147,19 +3194,33 @@ button {
   }
 
   body.printing-monthly .program-chip-major {
-    font-size: 7.2pt;
+    font-size: 6.6pt;
   }
 
   body.printing-monthly .program-chip-topic {
-    font-size: 6.2pt;
+    font-size: 5.5pt;
   }
 
   body.printing-monthly .split-program-period-grid .program-chip-major {
-    font-size: 6.5pt;
+    font-size: 5.8pt;
   }
 
   body.printing-monthly .split-program-period-grid .program-chip-topic {
-    font-size: 5.7pt;
+    font-size: 4.9pt;
+  }
+
+  body.printing-monthly .closed-cancel {
+    color: #e03131;
+    font: inherit;
+    text-decoration: none;
+  }
+
+  body.printing-monthly .screen-only {
+    display: none !important;
+  }
+
+  body.printing-monthly .print-only {
+    display: inline !important;
   }
 
   body.printing-monthly .add-dot,

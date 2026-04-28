@@ -905,16 +905,20 @@
         const outside = date.getMonth() !== cursor.getMonth();
         const day = date.getDay();
         const isToday = iso === todayIso;
-        const holiday = holidayName(iso);
-        const customClosed = isCustomClosed(iso);
-        const closed = isClosedDate(iso);
+        const holiday = outside ? "" : holidayName(iso);
+        const customClosed = !outside && isCustomClosed(iso);
+        const closed = !outside && isClosedDate(iso);
         const allowed = calendar.allowedDays.includes(day) && !closed && !outside;
         const canOpen = allowed;
-        const items = programsForDate(iso).filter((program) => programMatchesCalendar(program, calendar, iso));
+        const items = outside
+          ? []
+          : programsForDate(iso).filter((program) => programMatchesCalendar(program, calendar, iso));
         const splitGroups = calendar.service === "주간";
         const dayTopNotes = [
           holiday ? `<span class="holiday-label day-top-holiday">${h(holiday)}</span>` : "",
-          customClosed ? `<button class="holiday-label closed-cancel day-top-holiday" data-toggle-closed-date="${h(iso)}" type="button">휴무 취소</button>` : ""
+          customClosed
+            ? `<button class="holiday-label closed-cancel day-top-holiday" data-toggle-closed-date="${h(iso)}" type="button"><span class="screen-only">휴무 취소</span><span class="print-only">휴무</span></button>`
+            : ""
         ]
           .filter(Boolean)
           .join("");
@@ -922,7 +926,7 @@
         return `
           <div class="day-cell program-day ${outside ? "outside" : ""} ${isToday ? "today" : ""} ${closed ? "closed" : ""} ${!allowed ? "disabled" : ""}" ${canOpen ? `data-program-drop-date="${h(iso)}" data-program-drop-service="${h(calendar.service)}"` : ""}>
             <div class="day-top">
-              <span class="day-number">${date.getDate()}</span>
+              <span class="day-number">${outside ? "" : date.getDate()}</span>
               <span class="day-top-meta">
                 ${dayTopNotes}
                 ${canOpen ? `<button class="add-dot" data-open-program-date="${h(iso)}" data-program-service="${h(calendar.service)}" type="button">+</button>` : ""}
@@ -978,7 +982,7 @@
     const periodRows = Array.from({ length: layout.periodCount }, (_, index) => index + 1);
 
     return `
-      <div class="program-period-grid ${splitGroups ? "split-program-period-grid" : ""}" style="--period-count: ${layout.periodCount}; grid-template-rows: repeat(${layout.periodCount}, minmax(34px, auto));">
+      <div class="program-period-grid ${splitGroups ? "split-program-period-grid" : ""}" style="--period-count: ${layout.periodCount}; grid-template-rows: repeat(${layout.periodCount}, minmax(44px, auto));">
         ${periodRows.map((period) => `<span class="program-period-row" style="grid-row: ${period};"></span>`).join("")}
         ${layout.entries
           .map((entry) =>
@@ -1187,9 +1191,11 @@
     const start = new Date(first);
     const offset = (first.getDay() - weekStart + 7) % 7;
     start.setDate(first.getDate() - offset);
+    const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+    const cellCount = Math.ceil((offset + last.getDate()) / 7) * 7;
     const days = [];
 
-    for (let i = 0; i < 42; i += 1) {
+    for (let i = 0; i < cellCount; i += 1) {
       const date = new Date(start);
       date.setDate(start.getDate() + i);
       days.push(date);
@@ -2697,6 +2703,11 @@
             <div class="panel" style="margin-top: 16px;">
               <div class="panel-head">
                 <h3>등록된 프로그램</h3>
+                ${
+                  programs.length
+                    ? `<button class="ghost-button" data-save-program-updates type="button">수정 저장</button>`
+                    : ""
+                }
               </div>
               <div class="panel-body">
                 ${
@@ -2758,7 +2769,6 @@
             </label>
           </div>
           <div class="list-item-actions registered-program-actions">
-            <button class="ghost-button" type="submit">수정 저장</button>
             <button class="danger-button" data-delete-program="${h(program.id)}" data-program-date="${h(date)}" data-program-service="${h(selectedService)}" type="button">삭제</button>
           </div>
         </form>
@@ -2999,11 +3009,11 @@
     );
   }
 
-  function handleProgramUpdate(form) {
+  function programUpdateFromForm(form) {
     const data = new FormData(form);
     const programId = String(data.get("programId") || "");
     const index = state.monthlyPrograms.findIndex((item) => item.id === programId);
-    if (index < 0) return;
+    if (index < 0) return null;
 
     const current = state.monthlyPrograms[index];
     const major = String(data.get("major") || "").trim();
@@ -3022,10 +3032,34 @@
     });
 
     ensureProgramMajorTheme(updated.major, updated.category);
-    state.monthlyPrograms[index] = updated;
+    return { index, updated };
+  }
+
+  function applyProgramUpdateForm(form) {
+    const result = programUpdateFromForm(form);
+    if (!result) return null;
+    state.monthlyPrograms[result.index] = result.updated;
+    return result.updated;
+  }
+
+  function handleProgramUpdate(form) {
+    const updated = applyProgramUpdateForm(form);
+    if (!updated) return;
     saveState("프로그램 정보가 수정되었습니다.");
     render();
     openProgramModal(updated.date, updated.service);
+  }
+
+  function handleProgramUpdateBatch() {
+    const forms = Array.from(modalRoot.querySelectorAll("[data-program-update-form]"));
+    const invalid = forms.find((form) => !form.reportValidity());
+    if (invalid) return;
+    const updatedPrograms = forms.map((form) => applyProgramUpdateForm(form)).filter(Boolean);
+    if (!updatedPrograms.length) return;
+    const lastUpdated = updatedPrograms[updatedPrograms.length - 1];
+    saveState("프로그램 정보가 수정되었습니다.");
+    render();
+    openProgramModal(lastUpdated.date, lastUpdated.service);
   }
 
   function updateProgramTopic(form) {
@@ -4916,6 +4950,11 @@
       return;
     }
 
+    if (event.target.closest("[data-save-program-updates]")) {
+      handleProgramUpdateBatch();
+      return;
+    }
+
     if (event.target.closest("[data-print-transport]")) {
       printTransport();
       return;
@@ -5084,7 +5123,7 @@
     }
 
     if (form.matches("[data-program-update-form]")) {
-      handleProgramUpdate(form);
+      handleProgramUpdateBatch();
       return;
     }
 
