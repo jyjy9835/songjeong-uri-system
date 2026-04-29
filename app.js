@@ -55,6 +55,11 @@
     { key: "A", label: "A그룹" },
     { key: "B", label: "B그룹" }
   ];
+  const PROGRAM_GROUP_SELECT_LABELS = {
+    all: "전체 대상",
+    A: "A",
+    B: "B"
+  };
   const DEFAULT_PROGRAM_PERIOD_COUNT = 4;
   const MOVE_TYPES = [
     { key: "vacation", label: "휴가", className: "note-row" },
@@ -469,6 +474,8 @@
       topic: program.topic || "",
       session: normalizeProgramDuration(program.session),
       period: normalizeProgramPeriod(program.period),
+      majorLetterSpacing: normalizeProgramLetterSpacing(program.majorLetterSpacing),
+      topicLetterSpacing: normalizeProgramLetterSpacing(program.topicLetterSpacing),
       service,
       group: service === "주간" ? normalizeProgramGroup(program.group) : "all",
       time: program.time || "",
@@ -616,9 +623,20 @@
     return Number.isFinite(period) && period > 0 ? period : 0;
   }
 
+  function normalizeProgramLetterSpacing(value) {
+    const spacing = Number(value);
+    if (!Number.isFinite(spacing)) return 0;
+    return Math.max(-0.18, Math.min(0.12, Math.round(spacing * 100) / 100));
+  }
+
   function programGroupLabel(value) {
     const group = normalizeProgramGroup(value);
     return PROGRAM_GROUPS.find((item) => item.key === group)?.label || "전체 대상";
+  }
+
+  function programGroupSelectLabel(value) {
+    const group = normalizeProgramGroup(value);
+    return PROGRAM_GROUP_SELECT_LABELS[group] || programGroupLabel(group);
   }
 
   function inferCategory(text = "") {
@@ -2683,16 +2701,28 @@
                 <span>차시</span>
                 <input name="session" type="number" min="1" max="99" value="1" required />
               </label>
+              <label class="field">
+                <span>대주제 자간</span>
+                <input name="majorLetterSpacing" type="number" min="-0.18" max="0.12" step="0.01" value="0" />
+              </label>
+              <label class="field">
+                <span>소주제 자간</span>
+                <input name="topicLetterSpacing" type="number" min="-0.18" max="0.12" step="0.01" value="0" />
+              </label>
               ${
                 isDayService
                   ? `<label class="field">
                       <span>대상</span>
                       <select name="group">
-                        ${PROGRAM_GROUPS.map((group) => `<option value="${h(group.key)}">${h(group.label)}</option>`).join("")}
+                        ${PROGRAM_GROUPS.map((group) => `<option value="${h(group.key)}">${h(programGroupSelectLabel(group.key))}</option>`).join("")}
                       </select>
                     </label>`
                   : `<input name="group" type="hidden" value="all" />`
               }
+              <div class="field program-spacing-preview-field">
+                <span>인쇄 미리보기</span>
+                <div class="program-spacing-preview" data-program-spacing-preview aria-live="polite"></div>
+              </div>
               <div class="field">
                 <span>&nbsp;</span>
                 <button class="primary-button" type="submit">프로그램 추가</button>
@@ -2723,6 +2753,7 @@
         </section>
       </div>
     `;
+    updateProgramSpacingPreviews(modalRoot);
   }
 
   function renderRegisteredProgramEditor(program, date, selectedService) {
@@ -2762,11 +2793,23 @@
               <input name="session" type="number" min="1" max="99" value="${h(normalizeProgramDuration(program.session))}" required />
             </label>
             <label class="field">
+              <span>대주제 자간</span>
+              <input name="majorLetterSpacing" type="number" min="-0.18" max="0.12" step="0.01" value="${h(normalizeProgramLetterSpacing(program.majorLetterSpacing))}" />
+            </label>
+            <label class="field">
+              <span>소주제 자간</span>
+              <input name="topicLetterSpacing" type="number" min="-0.18" max="0.12" step="0.01" value="${h(normalizeProgramLetterSpacing(program.topicLetterSpacing))}" />
+            </label>
+            <label class="field">
               <span>그룹</span>
               <select name="group">
-                ${PROGRAM_GROUPS.map((item) => `<option value="${h(item.key)}" ${item.key === group ? "selected" : ""}>${h(item.label)}</option>`).join("")}
+                ${PROGRAM_GROUPS.map((item) => `<option value="${h(item.key)}" ${item.key === group ? "selected" : ""}>${h(programGroupSelectLabel(item.key))}</option>`).join("")}
               </select>
             </label>
+            <div class="field program-spacing-preview-field">
+              <span>인쇄 미리보기</span>
+              <div class="program-spacing-preview" data-program-spacing-preview aria-live="polite"></div>
+            </div>
           </div>
           <div class="list-item-actions registered-program-actions">
             <button class="danger-button" data-delete-program="${h(program.id)}" data-program-date="${h(date)}" data-program-service="${h(selectedService)}" type="button">삭제</button>
@@ -2981,6 +3024,8 @@
       topic,
       period: Number(data.get("period") || 1),
       session: Number(data.get("session") || 1),
+      majorLetterSpacing: data.get("majorLetterSpacing"),
+      topicLetterSpacing: data.get("topicLetterSpacing"),
       service: data.get("service"),
       group: data.get("group"),
       time: "",
@@ -3027,6 +3072,8 @@
       topic,
       period: Number(data.get("period") || current.period || 1),
       session: Number(data.get("session") || current.session || 1),
+      majorLetterSpacing: data.get("majorLetterSpacing"),
+      topicLetterSpacing: data.get("topicLetterSpacing"),
       service,
       group: service === "주간" ? data.get("group") : "all"
     });
@@ -4692,13 +4739,50 @@
     const group = normalizeProgramGroup(program.group);
     const groupClass = group === "A" ? "group-a" : group === "B" ? "group-b" : "group-all";
     const groupText = programGroupMeta(program);
+    const majorLetterSpacing = normalizeProgramLetterSpacing(program.majorLetterSpacing);
+    const topicLetterSpacing = normalizeProgramLetterSpacing(program.topicLetterSpacing);
+    const letterSpacingStyle = `--program-major-letter-spacing: ${majorLetterSpacing}em; --program-topic-letter-spacing: ${topicLetterSpacing}em;`;
     const gridStyle = period ? `grid-row: ${period} / span ${span}; grid-column: ${programGridColumn(program, options.splitGroups)};` : "";
     return `
-      <span class="chip program-chip category-${h(program.category)} session-${span} ${groupClass}" style="--session-span: ${span}; ${gridStyle}" title="${h(shortProgramLabel(program))}" ${attributes}>
+      <span class="chip program-chip category-${h(program.category)} session-${span} ${groupClass}" style="--session-span: ${span}; ${letterSpacingStyle} ${gridStyle}" title="${h(shortProgramLabel(program))}" ${attributes}>
         <span class="program-chip-major">${h(`${major}${groupText ? ` (${groupText})` : ""}`)}</span>
         ${secondLine ? `<span class="program-chip-topic">${h(secondLine)}</span>` : ""}
       </span>
     `;
+  }
+
+  function programDraftFromForm(form) {
+    const data = new FormData(form);
+    const major = String(data.get("major") || "").trim() || "대주제";
+    const topic = String(data.get("topic") || "").trim();
+    const service = normalizeServiceName(data.get("service") || SERVICE_CALENDARS[0].service);
+    const isDayService = service === SERVICE_CALENDARS[0].service;
+    return normalizeProgram({
+      id: "preview",
+      date: data.get("date") || toIsoDate(selectedMonth),
+      category: categoryForMajorTheme(major, topic),
+      major,
+      topic,
+      period: Number(data.get("period") || 1),
+      session: Number(data.get("session") || 1),
+      majorLetterSpacing: data.get("majorLetterSpacing"),
+      topicLetterSpacing: data.get("topicLetterSpacing"),
+      service,
+      group: isDayService ? data.get("group") : "all",
+      time: "",
+      teacher: "",
+      room: ""
+    });
+  }
+
+  function updateProgramSpacingPreview(form) {
+    const preview = form.querySelector("[data-program-spacing-preview]");
+    if (!preview) return;
+    preview.innerHTML = renderProgramChip(programDraftFromForm(form));
+  }
+
+  function updateProgramSpacingPreviews(root = document) {
+    root.querySelectorAll("form#program-form, form[data-program-update-form]").forEach(updateProgramSpacingPreview);
   }
 
   function programGridColumn(program, splitGroups = false) {
@@ -5149,6 +5233,11 @@
   document.addEventListener("change", (event) => {
     const target = event.target;
 
+    if (target instanceof Element) {
+      const previewForm = target.closest("form#program-form, form[data-program-update-form]");
+      if (previewForm) updateProgramSpacingPreview(previewForm);
+    }
+
     if (target.id === "daily-date") {
       dailyDate = target.value || todayIso;
       dayAbsentPickerOpen = false;
@@ -5210,6 +5299,11 @@
 
   document.addEventListener("input", (event) => {
     const target = event.target;
+
+    if (target instanceof Element) {
+      const previewForm = target.closest("form#program-form, form[data-program-update-form]");
+      if (previewForm) updateProgramSpacingPreview(previewForm);
+    }
 
     if (target.matches("[data-report-field]")) {
       updateTeacherReport(target);
