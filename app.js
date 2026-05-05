@@ -46,9 +46,9 @@
     { key: "afterWedFriSat", label: "방과후(수금토)" }
   ];
   const SERVICE_CALENDARS = [
-    { key: "day", title: "주간 프로그램 (월~금)", service: "주간", allowedDays: [1, 2, 3, 4, 5] },
-    { key: "afterMonTueThuSat", title: "방과후(월화목토) 프로그램", service: "방과후(월화목토)", allowedDays: [1, 2, 4, 6] },
-    { key: "afterWedFriSat", title: "방과후(수금토) 프로그램", service: "방과후(수금토)", allowedDays: [3, 5, 6] }
+    { key: "day", title: "주간 프로그램 (월~금)", service: "주간", allowedDays: [1, 2, 3, 4, 5], periodCount: 4 },
+    { key: "afterMonTueThuSat", title: "방과후(월화목토) 프로그램", service: "방과후(월화목토)", allowedDays: [1, 2, 4, 6], periodCount: 3 },
+    { key: "afterWedFriSat", title: "방과후(수금토) 프로그램", service: "방과후(수금토)", allowedDays: [3, 5, 6], periodCount: 3 }
   ];
   const PROGRAM_GROUPS = [
     { key: "all", label: "전체 대상" },
@@ -932,6 +932,8 @@
           ? []
           : programsForDate(iso).filter((program) => programMatchesCalendar(program, calendar, iso));
         const splitGroups = calendar.service === "주간";
+        const periodCount = calendar.periodCount || DEFAULT_PROGRAM_PERIOD_COUNT;
+        const groupSaturdayTopics = calendar.key !== "day" && day === 6;
         const dayTopNotes = [
           holiday ? `<span class="holiday-label day-top-holiday">${h(holiday)}</span>` : "",
           customClosed
@@ -950,7 +952,7 @@
                 ${canOpen ? `<button class="add-dot" data-open-program-date="${h(iso)}" data-program-service="${h(calendar.service)}" type="button">+</button>` : ""}
               </span>
             </div>
-            ${renderProgramPeriodGrid(items, splitGroups)}
+            ${renderProgramPeriodGrid(items, splitGroups, { periodCount, groupSaturdayTopics })}
           </div>
         `;
       })
@@ -995,27 +997,92 @@
     return programMatchesCalendar(program, serviceCalendarForService(program.service), date);
   }
 
-  function renderProgramPeriodGrid(items, splitGroups = false) {
-    const layout = programPeriodLayout(items, splitGroups);
+  function renderProgramPeriodGrid(items, splitGroups = false, options = {}) {
+    const periodCount = options.periodCount || DEFAULT_PROGRAM_PERIOD_COUNT;
+    const gridItems = options.groupSaturdayTopics ? groupSaturdayTopicPrograms(items) : items;
+    const layout = programPeriodLayout(gridItems, splitGroups, periodCount);
     const periodRows = Array.from({ length: layout.periodCount }, (_, index) => index + 1);
+    const classes = [
+      "program-period-grid",
+      splitGroups ? "split-program-period-grid" : "",
+      options.groupSaturdayTopics ? "topic-group-period-grid" : ""
+    ]
+      .filter(Boolean)
+      .join(" ");
 
     return `
-      <div class="program-period-grid ${splitGroups ? "split-program-period-grid" : ""}" style="--period-count: ${layout.periodCount}; grid-template-rows: repeat(${layout.periodCount}, minmax(44px, auto));">
+      <div class="${classes}" style="--period-count: ${layout.periodCount}; grid-template-rows: repeat(${layout.periodCount}, minmax(44px, 1fr));">
         ${periodRows.map((period) => `<span class="program-period-row" style="grid-row: ${period};"></span>`).join("")}
         ${layout.entries
-          .map((entry) =>
-            renderProgramChip(entry.program, `draggable="true" data-program-drag-id="${h(entry.program.id)}"`, {
+          .map((entry) => {
+            const dragAttributes = Array.isArray(entry.program.topicList)
+              ? ""
+              : `draggable="true" data-program-drag-id="${h(entry.program.id)}"`;
+            return renderProgramChip(entry.program, dragAttributes, {
               period: entry.period,
               duration: entry.duration,
               splitGroups
-            })
-          )
+            });
+          })
           .join("")}
       </div>
     `;
   }
 
-  function programPeriodLayout(items, splitGroups = false) {
+  function groupSaturdayTopicPrograms(items) {
+    const buckets = new Map();
+    const ordered = [];
+
+    items.forEach((program, index) => {
+      const major = cleanSelectValue(program.major);
+      const topic = cleanSelectValue(program.topic);
+      if (!major || !topic) {
+        ordered.push({ program, index });
+        return;
+      }
+
+      const key = [
+        normalizeServiceName(program.service),
+        program.category || "",
+        major,
+        normalizeProgramGroup(program.group),
+        normalizeProgramPeriod(program.period) || "",
+        normalizeProgramLetterSpacing(program.majorLetterSpacing),
+        normalizeProgramLetterSpacing(program.topicLetterSpacing)
+      ].join("||");
+
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push({ program, index });
+    });
+
+    buckets.forEach((entries) => {
+      if (entries.length < 2) {
+        ordered.push(entries[0]);
+        return;
+      }
+
+      const first = entries[0].program;
+      const topics = Array.from(new Set(entries.map(({ program }) => cleanSelectValue(program.topic)).filter(Boolean)));
+      const maxSession = Math.max(...entries.map(({ program }) => normalizeProgramDuration(program.session)));
+      const groupedSession = Math.max(maxSession, 2);
+
+      ordered.push({
+        index: entries[0].index,
+        program: {
+          ...first,
+          id: entries.map(({ program }) => program.id).join("|"),
+          topic: "",
+          topicList: topics,
+          session: groupedSession,
+          period: normalizeProgramPeriod(first.period) || first.period
+        }
+      });
+    });
+
+    return ordered.sort((a, b) => a.index - b.index).map(({ program }) => program);
+  }
+
+  function programPeriodLayout(items, splitGroups = false, minPeriodCount = DEFAULT_PROGRAM_PERIOD_COUNT) {
     const occupied = { left: new Set(), right: new Set() };
     const sorted = items
       .map((program, index) => ({ program, index, explicitPeriod: normalizeProgramPeriod(program.period) }))
@@ -1026,7 +1093,7 @@
         return a.index - b.index;
       });
     let nextPeriod = 1;
-    let periodCount = DEFAULT_PROGRAM_PERIOD_COUNT;
+    let periodCount = Math.max(1, minPeriodCount || DEFAULT_PROGRAM_PERIOD_COUNT);
 
     const entries = sorted.map(({ program, explicitPeriod }) => {
       const duration = normalizeProgramDuration(program.session);
@@ -4719,8 +4786,10 @@
   function shortProgramLabel(program) {
     const major = cleanSelectValue(program.major) || "프로그램";
     const topic = cleanSelectValue(program.topic);
+    const topicList = Array.isArray(program.topicList) ? program.topicList.filter(Boolean) : [];
+    const topicText = topicList.length ? topicList.join(", ") : topic;
     const group = programGroupMeta(program);
-    return `${major}${group ? ` (${group})` : ""}${topic ? ` · ${topic}` : ""}${programSessionSuffix(program)}`;
+    return `${major}${group ? ` (${group})` : ""}${topicText ? ` · ${topicText}` : ""}${programSessionSuffix(program)}`;
   }
 
   function programSessionSuffix(program) {
@@ -4734,19 +4803,27 @@
     const period = normalizeProgramPeriod(options.period);
     const major = cleanSelectValue(program.major) || "프로그램";
     const topic = cleanSelectValue(program.topic);
+    const topicList = Array.isArray(program.topicList) ? program.topicList.filter(Boolean) : [];
     const suffix = programSessionSuffix(program).trim();
-    const secondLine = [`${topic ? `(${topic})` : ""}`, suffix].filter(Boolean).join(" ");
+    const secondLine = topicList.length ? "" : [`${topic ? `(${topic})` : ""}`, suffix].filter(Boolean).join(" ");
     const group = normalizeProgramGroup(program.group);
     const groupClass = group === "A" ? "group-a" : group === "B" ? "group-b" : "group-all";
     const groupText = programGroupMeta(program);
+    const topicListClass = topicList.length ? "topic-list-program-chip" : "";
     const majorLetterSpacing = normalizeProgramLetterSpacing(program.majorLetterSpacing);
     const topicLetterSpacing = normalizeProgramLetterSpacing(program.topicLetterSpacing);
     const letterSpacingStyle = `--program-major-letter-spacing: ${majorLetterSpacing}em; --program-topic-letter-spacing: ${topicLetterSpacing}em;`;
     const gridStyle = period ? `grid-row: ${period} / span ${span}; grid-column: ${programGridColumn(program, options.splitGroups)};` : "";
     return `
-      <span class="chip program-chip category-${h(program.category)} session-${span} ${groupClass}" style="--session-span: ${span}; ${letterSpacingStyle} ${gridStyle}" title="${h(shortProgramLabel(program))}" ${attributes}>
+      <span class="chip program-chip category-${h(program.category)} session-${span} ${groupClass} ${topicListClass}" style="--session-span: ${span}; ${letterSpacingStyle} ${gridStyle}" title="${h(shortProgramLabel(program))}" ${attributes}>
         <span class="program-chip-major">${h(`${major}${groupText ? ` (${groupText})` : ""}`)}</span>
-        ${secondLine ? `<span class="program-chip-topic">${h(secondLine)}</span>` : ""}
+        ${
+          topicList.length
+            ? `<span class="program-chip-topic-list">${topicList.map((item) => `<span>-${h(item)}</span>`).join("")}</span>`
+            : secondLine
+              ? `<span class="program-chip-topic">${h(secondLine)}</span>`
+              : ""
+        }
       </span>
     `;
   }

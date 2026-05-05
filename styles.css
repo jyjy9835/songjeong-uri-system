@@ -741,7 +741,7 @@ body.printing-monthly .closed-cancel {
 .program-period-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(var(--period-count, 4), minmax(44px, auto));
+  grid-template-rows: repeat(var(--period-count, 4), minmax(44px, 1fr));
   gap: 5px;
   min-height: 196px;
 }
@@ -854,6 +854,29 @@ body.printing-monthly .closed-cancel {
 .program-chip-topic {
   font-size: 0.62rem;
   letter-spacing: var(--program-topic-letter-spacing, 0);
+}
+
+.topic-list-program-chip {
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 3px;
+  padding-top: 6px;
+}
+
+.program-chip-topic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  color: inherit;
+  font-size: 0.62rem;
+  line-height: 1.1;
+  letter-spacing: var(--program-topic-letter-spacing, 0);
+  text-align: left;
+}
+
+.program-chip-topic-list span {
+  display: block;
 }
 
 .split-program-period-grid .program-chip-major {
@@ -3213,7 +3236,8 @@ body.printing-monthly .closed-cancel {
   }
 
   body.printing-monthly .program-chip-major,
-  body.printing-monthly .program-chip-topic {
+  body.printing-monthly .program-chip-topic,
+  body.printing-monthly .program-chip-topic-list {
     overflow: visible;
     text-overflow: clip;
     white-space: normal;
@@ -3228,12 +3252,21 @@ body.printing-monthly .closed-cancel {
     font-size: 5.5pt;
   }
 
+  body.printing-monthly .program-chip-topic-list {
+    font-size: 5.2pt;
+    line-height: 1.05;
+  }
+
   body.printing-monthly .split-program-period-grid .program-chip-major {
     font-size: 5.8pt;
   }
 
   body.printing-monthly .split-program-period-grid .program-chip-topic {
     font-size: 4.9pt;
+  }
+
+  body.printing-monthly .split-program-period-grid .program-chip-topic-list {
+    font-size: 4.7pt;
   }
 
   body.printing-monthly .program-day .day-top .holiday-label,
