@@ -7,6 +7,9 @@
   const SYNC_INTERVAL_MS = 10000;
   const CENTER_LOGO_SRC = "./assets/songjeong-uri-logo.jpg";
   const REPORT_HIDDEN_KEY = "__hiddenTeachers";
+  const CLUB_MAJOR_THEME = "그룹별 스포츠 동아리";
+  const CLUB_TOPIC_COUNT = 3;
+  const SPECIAL_EVENT_LEAVE_DAYS = 5;
   const KOREAN_DAYS = ["일", "월", "화", "수", "목", "금", "토"];
   const SUPPORT_FIELDS = ["rest", "docs", "desk"];
   const SUPPORT_LABELS = {
@@ -63,8 +66,11 @@
   const DEFAULT_PROGRAM_PERIOD_COUNT = 4;
   const MOVE_TYPES = [
     { key: "vacation", label: "휴가", className: "note-row" },
+    { key: "birthdayLeave", label: "생일 휴가", className: "note-row" },
+    { key: "familyEventLeave", label: "경조사 휴가", className: "note-row" },
     { key: "morningHalf", label: "오전 반차", className: "half-row" },
     { key: "afternoonHalf", label: "오후 반차", className: "half-row" },
+    { key: "compMorningHalf", label: "보상휴가", className: "half-row" },
     { key: "dayCarnivalIn", label: "주간 카니발 등원", className: "day-route" },
     { key: "dayCarnivalOut", label: "주간 카니발 하원", className: "day-route" },
     { key: "dayMorningIn", label: "주간 모닝 등원", className: "day-route" },
@@ -116,7 +122,8 @@
     "음악활동",
     "요리활동",
     "디지털 활용",
-    "지역사회연계"
+    "지역사회연계",
+    CLUB_MAJOR_THEME
   ];
 
   const app = document.getElementById("app");
@@ -260,6 +267,12 @@
           담당자2: "#ef3b2d",
           담당자3: "#2f9e44",
           협력기관: "#ae3ec9"
+        },
+        teacherProfiles: {
+          담당자1: { hireDate: "", birthday: "" },
+          담당자2: { hireDate: "", birthday: "" },
+          담당자3: { hireDate: "", birthday: "" },
+          협력기관: { hireDate: "", birthday: "" }
         },
         users: ["이용인1", "이용인2", "이용인3", "이용인4"],
         userGroups: {
@@ -437,6 +450,9 @@
     if (!next.majorThemes.length) {
       next.majorThemes = base.majorThemes;
     }
+    if (!next.majorThemes.includes(CLUB_MAJOR_THEME)) {
+      next.majorThemes.push(CLUB_MAJOR_THEME);
+    }
     next.majorThemeCategories = normalizeMajorThemeCategories(next.majorThemeCategories, next.majorThemes);
 
     const hasStoredUserGroups = Boolean(input.settings?.userGroups);
@@ -459,6 +475,7 @@
     next.settings.userGroups = normalizeUserGroups(next.settings.userGroups, next.settings.users);
     next.settings.users = flattenUserGroups(next.settings.userGroups);
     next.settings.teacherColors = normalizeTeacherColors(next.settings.teacherColors, next.settings.teachers);
+    next.settings.teacherProfiles = normalizeTeacherProfiles(next.settings.teacherProfiles, next.settings.teachers);
     next.closedDates = Array.isArray(input.closedDates) ? input.closedDates.map(cleanSelectValue).filter(Boolean).filter(unique) : [];
 
     return next;
@@ -466,13 +483,17 @@
 
   function normalizeProgram(program) {
     const service = normalizeServiceName(program.service || "주간");
+    const major = cleanSelectValue(program.major) || "프로그램";
+    const topicList = normalizeClubTopicList(program.topicList);
+    const isClub = isClubProgramMajor(major);
     return {
       id: program.id || uid("program"),
       date: program.date || todayIso,
-      category: program.category || inferCategory(`${program.major || ""} ${program.topic || ""}`),
-      major: program.major || "프로그램",
-      topic: program.topic || "",
-      session: normalizeProgramDuration(program.session),
+      category: program.category || inferCategory(`${major} ${program.topic || ""} ${topicList.join(" ")}`),
+      major,
+      topic: program.topic || topicList[0] || "",
+      topicList: isClub ? topicList : [],
+      session: isClub ? 2 : normalizeProgramDuration(program.session),
       period: normalizeProgramPeriod(program.period),
       majorLetterSpacing: normalizeProgramLetterSpacing(program.majorLetterSpacing),
       topicLetterSpacing: normalizeProgramLetterSpacing(program.topicLetterSpacing),
@@ -554,9 +575,28 @@
     return colors;
   }
 
+  function normalizeTeacherProfiles(input, teachers) {
+    const profiles = {};
+    teachers.forEach((teacher) => {
+      const profile = input?.[teacher] || {};
+      profiles[teacher] = {
+        hireDate: normalizeDateInput(profile.hireDate),
+        birthday: normalizeDateInput(profile.birthday)
+      };
+    });
+    return profiles;
+  }
+
   function normalizeColor(value) {
     const color = cleanSelectValue(value);
     return /^#[0-9a-f]{6}$/i.test(color) ? color : "";
+  }
+
+  function normalizeDateInput(value) {
+    const text = cleanSelectValue(value);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return "";
+    const date = parseIsoDate(text);
+    return toIsoDate(date) === text ? text : "";
   }
 
   function normalizeCategoryId(value) {
@@ -586,7 +626,7 @@
 
   function defaultMajorThemeCategory(theme) {
     const value = cleanSelectValue(theme);
-    if (value.includes("체육") || value.includes("운동")) return "physical";
+    if (value === CLUB_MAJOR_THEME || value.includes("체육") || value.includes("운동") || value.includes("스포츠")) return "physical";
     if (value.includes("미술") || value.includes("음악") || value.includes("요리") || value.includes("공예") || value.includes("디지털")) return "creative";
     if (value.includes("지역") || value.includes("기관") || value.includes("협력")) return "partner";
     if (value.includes("사회") || value.includes("일상") || value.includes("의사소통") || value.includes("참여") || value.includes("자조")) return "participation";
@@ -629,6 +669,15 @@
     return Math.max(-0.18, Math.min(0.12, Math.round(spacing * 100) / 100));
   }
 
+  function isClubProgramMajor(value) {
+    return cleanSelectValue(value) === CLUB_MAJOR_THEME;
+  }
+
+  function normalizeClubTopicList(value) {
+    const source = Array.isArray(value) ? value : splitLines(value);
+    return source.map(cleanSelectValue).filter(Boolean).slice(0, CLUB_TOPIC_COUNT);
+  }
+
   function programGroupLabel(value) {
     const group = normalizeProgramGroup(value);
     return PROGRAM_GROUPS.find((item) => item.key === group)?.label || "전체 대상";
@@ -640,7 +689,7 @@
   }
 
   function inferCategory(text = "") {
-    if (text.includes("체육") || text.includes("운동")) return "physical";
+    if (text.includes("체육") || text.includes("운동") || text.includes("스포츠")) return "physical";
     if (text.includes("미술") || text.includes("음악") || text.includes("공예")) return "creative";
     if (text.includes("기관") || text.includes("지역")) return "partner";
     if (text.includes("참여") || text.includes("자조")) return "participation";
@@ -1015,7 +1064,7 @@
         ${periodRows.map((period) => `<span class="program-period-row" style="grid-row: ${period};"></span>`).join("")}
         ${layout.entries
           .map((entry) => {
-            const dragAttributes = Array.isArray(entry.program.topicList)
+            const dragAttributes = entry.program.isGroupedTopicChip
               ? ""
               : `draggable="true" data-program-drag-id="${h(entry.program.id)}"`;
             return renderProgramChip(entry.program, dragAttributes, {
@@ -1036,6 +1085,10 @@
     items.forEach((program, index) => {
       const major = cleanSelectValue(program.major);
       const topic = cleanSelectValue(program.topic);
+      if (normalizeClubTopicList(program.topicList).length || program.isGroupedTopicChip) {
+        ordered.push({ program, index });
+        return;
+      }
       if (!major || !topic) {
         ordered.push({ program, index });
         return;
@@ -1071,6 +1124,7 @@
         program: {
           ...first,
           id: entries.map(({ program }) => program.id).join("|"),
+          isGroupedTopicChip: true,
           topic: "",
           topicList: topics,
           session: groupedSession,
@@ -2076,8 +2130,67 @@
 
     app.innerHTML = `
       <div class="work-stats-stack">
+        ${renderTeacherLeaveStatsPanel()}
         ${periods.map(renderWorkStatsPanel).join("")}
       </div>
+    `;
+  }
+
+  function renderTeacherLeaveStatsPanel() {
+    const rows = computeTeacherLeaveStats()
+      .map(
+        (row) => `
+          <tr>
+            <th>${teacherBadge(row.teacher, row.teacher)}</th>
+            <td>
+              <strong>${h(row.tenureLabel)}</strong>
+              <span>${row.hireDate ? `입사 ${h(row.hireDate)}` : "입사일 미입력"}</span>
+            </td>
+            <td>
+              <strong>${h(row.baseLeaveLabel)}</strong>
+              <span>${h(row.baseLeaveStatus)}</span>
+            </td>
+            <td>
+              <strong>${h(row.birthdayLabel)}</strong>
+              <span>${h(row.birthdayStatus)}</span>
+            </td>
+            <td>
+              <strong>${h(row.compLabel)}</strong>
+              <span>토요일 전부 근무 시 오전반차</span>
+            </td>
+            <td>
+              <strong>${h(row.familyEventLabel)}</strong>
+              <span>경사 발생 시 ${SPECIAL_EVENT_LEAVE_DAYS}일</span>
+            </td>
+          </tr>
+        `
+      )
+      .join("");
+
+    return `
+      <section class="panel leave-stats-panel">
+        <div class="panel-head">
+          <div>
+            <h3>교사별 연월차 현황</h3>
+            <span class="muted">${h(formatLongDate(todayIso))} 기준 남은 휴가를 계산합니다.</span>
+          </div>
+        </div>
+        <div class="panel-body">
+          <table class="work-stats-table leave-stats-table">
+            <thead>
+              <tr>
+                <th>교사</th>
+                <th>입사 정보</th>
+                <th>연월차</th>
+                <th>생일 휴가</th>
+                <th>보상휴가</th>
+                <th>경조사 휴가</th>
+              </tr>
+            </thead>
+            <tbody>${rows || `<tr><td colspan="6">등록된 교사가 없습니다.</td></tr>`}</tbody>
+          </table>
+        </div>
+      </section>
     `;
   }
 
@@ -2188,6 +2301,170 @@
     return { rows, totals };
   }
 
+  function computeTeacherLeaveStats() {
+    const today = parseIsoDate(todayIso);
+    const currentYear = today.getFullYear();
+
+    return (state.settings.teachers || []).map((teacher) => {
+      const profile = state.settings.teacherProfiles?.[teacher] || {};
+      const hireDate = normalizeDateInput(profile.hireDate);
+      const birthday = normalizeDateInput(profile.birthday);
+      const hire = hireDate ? parseIsoDate(hireDate) : null;
+      const anniversary = hire ? addYears(hire, 1) : null;
+      const anniversaryIso = anniversary ? toIsoDate(anniversary) : "";
+      const underOneYear = Boolean(hire && today < anniversary);
+      const annualEligible = Boolean(hire && today >= anniversary);
+      const leaveUses = teacherLeaveUses(teacher);
+      const monthlyUsed = hire ? leaveUses.annualLike.filter((item) => item.date < anniversaryIso).reduce((sum, item) => sum + item.units, 0) : 0;
+      const annualUsed = hire ? leaveUses.annualLike.filter((item) => item.date >= anniversaryIso).reduce((sum, item) => sum + item.units, 0) : leaveUses.annualLike.reduce((sum, item) => sum + item.units, 0);
+      const monthlyAccrued = underOneYear ? accruedMonthlyLeaves(hire, today) : 0;
+      const annualGranted = annualEligible ? 15 : 0;
+      const birthdayUsed = leaveUses.birthday.filter((item) => parseIsoDate(item.date).getFullYear() === currentYear).length;
+      const birthdayWeek = birthday ? birthdayWeekRange(birthday, currentYear) : null;
+      const birthdayInWeek = Boolean(birthdayWeek && today >= birthdayWeek.start && today <= birthdayWeek.end);
+      const birthdayGranted = annualEligible ? 1 : 0;
+      const birthdayRemaining = birthdayGranted && birthdayInWeek && !birthdayUsed ? 1 : 0;
+      const compEarned = hire ? earnedCompLeaveUnits(teacher, hire, today) : 0;
+      const compUsed = leaveUses.comp.reduce((sum, item) => sum + item.units, 0);
+      const familyEventUsed = leaveUses.familyEvent.reduce((sum, item) => sum + item.units, 0);
+      const familyEventRemaining = familyEventUsed ? Math.max(0, SPECIAL_EVENT_LEAVE_DAYS - familyEventUsed) : 0;
+      const monthlyLabel = hire
+        ? underOneYear
+          ? `${formatLeaveUnits(monthlyAccrued)} 발생 / ${formatLeaveUnits(monthlyUsed)} 사용 / ${formatLeaveUnits(Math.max(0, monthlyAccrued - monthlyUsed))} 남음`
+          : "근속 1년 경과"
+        : "입사일 필요";
+      const annualLabel = hire
+        ? annualEligible
+          ? `${formatLeaveUnits(annualGranted)} 지급 / ${formatLeaveUnits(annualUsed)} 사용 / ${formatLeaveUnits(Math.max(0, annualGranted - annualUsed))} 남음`
+          : `${anniversaryIso} 지급 예정`
+        : "입사일 필요";
+
+      return {
+        teacher,
+        hireDate,
+        tenureLabel: hire ? tenureLabel(hire, today) : "입사일 필요",
+        baseLeaveLabel: annualEligible ? annualLabel : monthlyLabel,
+        baseLeaveStatus: hire ? (annualEligible ? "연차 자동 적용" : "월차 자동 적용") : "입사일 입력 후 자동 산정",
+        birthdayLabel: birthday
+          ? annualEligible
+            ? `${formatLeaveUnits(birthdayRemaining)} 남음`
+            : "근속 1년 후"
+          : "생일 필요",
+        birthdayStatus: birthday
+          ? annualEligible
+            ? birthdayUsed
+              ? "올해 사용 완료"
+              : birthdayInWeek
+                ? "이번 생일 주간 사용 가능"
+                : "생일 주간에 사용 가능"
+            : "근속 1년 이상부터"
+          : "교사 관리에서 생일 입력",
+        compLabel: hire ? `${formatLeaveUnits(compEarned)} 발생 / ${formatLeaveUnits(compUsed)} 사용 / ${formatLeaveUnits(Math.max(0, compEarned - compUsed))} 남음` : "입사일 필요",
+        familyEventLabel: familyEventUsed
+          ? `${formatLeaveUnits(familyEventUsed)} 사용 / ${formatLeaveUnits(familyEventRemaining)} 남음`
+          : "사용 기록 없음"
+      };
+    });
+  }
+
+  function teacherLeaveUses(teacher) {
+    const result = { annualLike: [], birthday: [], comp: [], familyEvent: [] };
+    (state.vacationTransport || []).forEach((entry) => {
+      if (cleanSelectValue(entry.person) !== teacher) return;
+      const type = normalizeMoveType(entry);
+      const date = normalizeDateInput(entry.date);
+      if (!date) return;
+
+      if (type === "휴가") result.annualLike.push({ date, units: 1 });
+      if (type === "오전 반차" || type === "오후 반차") result.annualLike.push({ date, units: 0.5 });
+      if (type === "생일 휴가") result.birthday.push({ date, units: 1 });
+      if (type === "보상휴가") result.comp.push({ date, units: 0.5 });
+      if (type === "경조사 휴가") result.familyEvent.push({ date, units: 1 });
+    });
+    return result;
+  }
+
+  function accruedMonthlyLeaves(hire, today) {
+    let count = 0;
+    const anniversary = addYears(hire, 1);
+    const cursor = startOfMonth(hire);
+    const previousMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+
+    while (cursor <= previousMonthEnd && cursor < anniversary) {
+      const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+      if (monthEnd >= hire) count += 1;
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    return Math.min(11, count);
+  }
+
+  function earnedCompLeaveUnits(teacher, hire, today) {
+    let units = 0;
+    const cursor = startOfMonth(hire);
+    const currentMonthStart = startOfMonth(today);
+
+    while (cursor < currentMonthStart) {
+      const saturdays = saturdaysInMonth(cursor).filter((date) => date >= hire);
+      if (saturdays.length && saturdays.every((date) => teacherWorkedOnDate(teacher, toIsoDate(date)))) {
+        units += 0.5;
+      }
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    return units;
+  }
+
+  function teacherWorkedOnDate(teacher, date) {
+    const daySchedule = state.dailySchedules?.[date];
+    if (!daySchedule) return false;
+
+    return Object.values(daySchedule).some((slotRecord) => {
+      const normalized = normalizeScheduleSlot(slotRecord);
+      const groupMatch = normalized.groups.some((group) => groupTeacherList(group).includes(teacher));
+      const supportMatch = SUPPORT_FIELDS.some((field) => supportTeacherList(normalized, field).includes(teacher));
+      return groupMatch || supportMatch;
+    });
+  }
+
+  function saturdaysInMonth(monthDate) {
+    const dates = [];
+    const cursor = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+    while (cursor.getMonth() === monthDate.getMonth()) {
+      if (cursor.getDay() === 6) dates.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return dates;
+  }
+
+  function birthdayWeekRange(birthday, year) {
+    const source = parseIsoDate(birthday);
+    const date = new Date(year, source.getMonth(), source.getDate());
+    const start = new Date(date);
+    start.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { start, end };
+  }
+
+  function tenureLabel(hire, today) {
+    if (today < hire) return "입사 예정";
+    let years = today.getFullYear() - hire.getFullYear();
+    let months = today.getMonth() - hire.getMonth();
+    if (today.getDate() < hire.getDate()) months -= 1;
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+    if (years <= 0 && months <= 0) return "1개월 미만";
+    return [years ? `${years}년` : "", months ? `${months}개월` : ""].filter(Boolean).join(" ");
+  }
+
+  function formatLeaveUnits(value) {
+    const units = Math.max(0, Number(value) || 0);
+    return `${Number.isInteger(units) ? units : units.toFixed(1)}일`;
+  }
+
   function addWorkMinutes(byTeacher, totals, teacher, field, minutes) {
     const name = cleanSelectValue(teacher);
     if (!name) return;
@@ -2259,6 +2536,7 @@
         <section class="panel span-4">
           <div class="panel-head">
             <h3>교사 관리</h3>
+            <span class="muted">입사일과 생일은 휴가 통계에 반영됩니다.</span>
           </div>
           <div class="panel-body">
             <form class="inline-add-form" data-add-teacher-form>
@@ -2308,10 +2586,19 @@
 
   function renderTeacherRow(teacher) {
     const color = teacherColor(teacher);
+    const profile = state.settings.teacherProfiles?.[teacher] || {};
     return `
       <div class="person-row teacher-row">
         <input data-teacher-edit value="${h(teacher)}" aria-label="${h(teacher)} 이름 수정" />
         <input class="teacher-color-input" data-teacher-color type="color" value="${h(color)}" aria-label="${h(teacher)} 색상" />
+        <label class="teacher-profile-field">
+          <span>입사일</span>
+          <input data-teacher-hire-date type="date" value="${h(profile.hireDate || "")}" />
+        </label>
+        <label class="teacher-profile-field">
+          <span>생일</span>
+          <input data-teacher-birthday type="date" value="${h(profile.birthday || "")}" />
+        </label>
         <button class="ghost-button" data-update-teacher="${h(teacher)}" type="button">수정</button>
         <button class="danger-button" data-delete-teacher="${h(teacher)}" type="button">삭제</button>
       </div>
@@ -2756,17 +3043,18 @@
                   ${state.majorThemes.map((theme) => `<option value="${h(theme)}"></option>`).join("")}
                 </datalist>
               </label>
-              <label class="field">
+              <label class="field" data-standard-topic-field>
                 <span>소주제</span>
                 <input name="topic" placeholder="오늘 수업 주제" />
               </label>
+              ${renderClubTopicFields()}
               <label class="field">
                 <span>교시</span>
                 <input name="period" type="number" min="1" max="99" value="${h(defaultPeriod)}" required />
               </label>
               <label class="field">
                 <span>차시</span>
-                <input name="session" type="number" min="1" max="99" value="1" required />
+                <input name="session" data-program-session-input type="number" min="1" max="99" value="1" required />
               </label>
               <label class="field">
                 <span>대주제 자간</span>
@@ -2823,6 +3111,19 @@
     updateProgramSpacingPreviews(modalRoot);
   }
 
+  function renderClubTopicFields(topicList = []) {
+    const topics = normalizeClubTopicList(topicList);
+    return Array.from({ length: CLUB_TOPIC_COUNT }, (_, index) => {
+      const number = index + 1;
+      return `
+        <label class="field club-topic-field" data-club-topic-field>
+          <span>동아리 소주제 ${number}</span>
+          <input name="clubTopic${number}" value="${h(topics[index] || "")}" placeholder="소주제 ${number}" />
+        </label>
+      `;
+    }).join("");
+  }
+
   function renderRegisteredProgramEditor(program, date, selectedService) {
     const group = normalizeProgramGroup(program.group);
     const service = normalizeServiceName(program.service || selectedService);
@@ -2847,17 +3148,18 @@
               <span>대주제</span>
               <input name="major" list="major-theme-options" value="${h(program.major || "")}" required />
             </label>
-            <label class="field">
+            <label class="field" data-standard-topic-field>
               <span>소주제</span>
               <input name="topic" value="${h(program.topic || "")}" placeholder="소주제 입력" />
             </label>
+            ${renderClubTopicFields(program.topicList)}
             <label class="field">
               <span>교시</span>
               <input name="period" type="number" min="1" max="99" value="${h(normalizeProgramPeriod(program.period) || 1)}" required />
             </label>
             <label class="field">
               <span>차시</span>
-              <input name="session" type="number" min="1" max="99" value="${h(normalizeProgramDuration(program.session))}" required />
+              <input name="session" data-program-session-input type="number" min="1" max="99" value="${h(normalizeProgramDuration(program.session))}" required />
             </label>
             <label class="field">
               <span>대주제 자간</span>
@@ -3083,14 +3385,16 @@
   function handleProgramSubmit(form) {
     const data = new FormData(form);
     const major = String(data.get("major") || "").trim();
-    const topic = String(data.get("topic") || "").trim();
+    const topicList = programTopicListFromForm(data, major);
+    const topic = isClubProgramMajor(major) ? topicList[0] || "" : String(data.get("topic") || "").trim();
     const program = normalizeProgram({
       date: data.get("date"),
-      category: categoryForMajorTheme(major, topic),
+      category: categoryForMajorTheme(major, topicList.join(" ") || topic),
       major,
       topic,
+      topicList,
       period: Number(data.get("period") || 1),
-      session: Number(data.get("session") || 1),
+      session: isClubProgramMajor(major) ? 2 : Number(data.get("session") || 1),
       majorLetterSpacing: data.get("majorLetterSpacing"),
       topicLetterSpacing: data.get("topicLetterSpacing"),
       service: data.get("service"),
@@ -3129,16 +3433,18 @@
 
     const current = state.monthlyPrograms[index];
     const major = String(data.get("major") || "").trim();
-    const topic = String(data.get("topic") || "").trim();
+    const topicList = programTopicListFromForm(data, major);
+    const topic = isClubProgramMajor(major) ? topicList[0] || "" : String(data.get("topic") || "").trim();
     const service = normalizeServiceName(data.get("service") || current.service);
-    const category = categoryForMajorTheme(major, topic);
+    const category = categoryForMajorTheme(major, topicList.join(" ") || topic);
     const updated = normalizeProgram({
       ...current,
       category,
       major,
       topic,
+      topicList,
       period: Number(data.get("period") || current.period || 1),
-      session: Number(data.get("session") || current.session || 1),
+      session: isClubProgramMajor(major) ? 2 : Number(data.get("session") || current.session || 1),
       majorLetterSpacing: data.get("majorLetterSpacing"),
       topicLetterSpacing: data.get("topicLetterSpacing"),
       service,
@@ -3249,6 +3555,7 @@
     state.settings.rooms = splitLines(data.get("rooms"));
     state.settings.timeSlots = normalizeTimeSlots(splitLines(data.get("timeSlots")));
     state.majorThemes = normalizeMajorThemeList(splitLines(data.get("majorThemes")));
+    if (!state.majorThemes.includes(CLUB_MAJOR_THEME)) state.majorThemes.push(CLUB_MAJOR_THEME);
     state.majorThemeCategories = normalizeMajorThemeCategories(state.majorThemeCategories, state.majorThemes);
     state.settings.adminPin = String(data.get("adminPin") || "0000");
     saveState("기본 설정이 저장되었습니다.");
@@ -3319,6 +3626,7 @@
 
     state.settings.teachers.push(name);
     state.settings.teacherColors[name] = TEACHER_COLOR_PALETTE[state.settings.teachers.length % TEACHER_COLOR_PALETTE.length];
+    state.settings.teacherProfiles[name] = { hireDate: "", birthday: "" };
     saveState("교사가 추가되었습니다.");
     renderPeople();
   }
@@ -3328,8 +3636,14 @@
     const row = button.closest(".person-row");
     const input = row?.querySelector("[data-teacher-edit]");
     const colorInput = row?.querySelector("[data-teacher-color]");
+    const hireDateInput = row?.querySelector("[data-teacher-hire-date]");
+    const birthdayInput = row?.querySelector("[data-teacher-birthday]");
     const newName = cleanSelectValue(input?.value);
     const nextColor = normalizeColor(colorInput?.value) || teacherColor(oldName);
+    const nextProfile = {
+      hireDate: normalizeDateInput(hireDateInput?.value),
+      birthday: normalizeDateInput(birthdayInput?.value)
+    };
     if (!newName) return;
 
     if (newName !== oldName && state.settings.teachers.includes(newName)) {
@@ -3341,14 +3655,17 @@
     state.settings.teachers = state.settings.teachers.map((teacher) => (teacher === oldName ? newName : teacher));
     delete state.settings.teacherColors[oldName];
     state.settings.teacherColors[newName] = nextColor;
+    delete state.settings.teacherProfiles[oldName];
+    state.settings.teacherProfiles[newName] = nextProfile;
     if (oldName !== newName) replaceTeacherInRecords(oldName, newName);
-    saveState("교사 이름이 수정되었습니다.");
+    saveState("교사 정보가 수정되었습니다.");
     renderPeople();
   }
 
   function deleteTeacher(name) {
     state.settings.teachers = state.settings.teachers.filter((teacher) => teacher !== name);
     delete state.settings.teacherColors[name];
+    delete state.settings.teacherProfiles[name];
     removeTeacherFromRecords(name);
     saveState("교사가 삭제되었습니다.");
     renderPeople();
@@ -4224,10 +4541,10 @@
   }
 
   function vacationTeachersForDate(date) {
-    const vacationLabel = MOVE_TYPES.find((type) => type.key === "vacation")?.label || "휴가";
+    const fullDayLeaveTypes = new Set(["휴가", "생일 휴가", "경조사 휴가"]);
     return new Set(
       movesForDate(date)
-        .filter((entry) => normalizeMoveType(entry) === vacationLabel)
+        .filter((entry) => fullDayLeaveTypes.has(normalizeMoveType(entry)))
         .map((entry) => cleanSelectValue(entry.person))
         .filter(Boolean)
     );
@@ -4828,20 +5145,43 @@
     `;
   }
 
+  function programTopicListFromForm(data, major) {
+    if (!isClubProgramMajor(major)) return [];
+    return Array.from({ length: CLUB_TOPIC_COUNT }, (_, index) => data.get(`clubTopic${index + 1}`)).map(cleanSelectValue).filter(Boolean);
+  }
+
+  function updateProgramSpecialFields(form) {
+    const major = cleanSelectValue(form.elements.major?.value);
+    const isClub = isClubProgramMajor(major);
+    const topicInput = form.elements.topic;
+    const sessionInput = form.querySelector("[data-program-session-input]");
+
+    form.classList.toggle("club-program-mode", isClub);
+    if (topicInput) topicInput.required = false;
+    if (sessionInput && isClub) sessionInput.value = "2";
+
+    form.querySelectorAll("[data-club-topic-field]").forEach((field) => {
+      const input = field.querySelector("input");
+      if (input) input.required = isClub;
+    });
+  }
+
   function programDraftFromForm(form) {
     const data = new FormData(form);
     const major = String(data.get("major") || "").trim() || "대주제";
-    const topic = String(data.get("topic") || "").trim();
+    const topicList = programTopicListFromForm(data, major);
+    const topic = isClubProgramMajor(major) ? topicList[0] || "" : String(data.get("topic") || "").trim();
     const service = normalizeServiceName(data.get("service") || SERVICE_CALENDARS[0].service);
     const isDayService = service === SERVICE_CALENDARS[0].service;
     return normalizeProgram({
       id: "preview",
       date: data.get("date") || toIsoDate(selectedMonth),
-      category: categoryForMajorTheme(major, topic),
+      category: categoryForMajorTheme(major, topicList.join(" ") || topic),
       major,
       topic,
+      topicList,
       period: Number(data.get("period") || 1),
-      session: Number(data.get("session") || 1),
+      session: isClubProgramMajor(major) ? 2 : Number(data.get("session") || 1),
       majorLetterSpacing: data.get("majorLetterSpacing"),
       topicLetterSpacing: data.get("topicLetterSpacing"),
       service,
@@ -4853,6 +5193,7 @@
   }
 
   function updateProgramSpacingPreview(form) {
+    updateProgramSpecialFields(form);
     const preview = form.querySelector("[data-program-spacing-preview]");
     if (!preview) return;
     preview.innerHTML = renderProgramChip(programDraftFromForm(form));
@@ -4876,7 +5217,9 @@
 
   function programOptionLabel(program) {
     const group = programGroupMeta(program);
-    return `${program.major}${group ? ` (${group})` : ""}${program.topic ? ` - ${program.topic}` : ""}${Number(program.session) > 1 ? ` (${program.session}차시)` : ""}`;
+    const topicList = normalizeClubTopicList(program.topicList);
+    const topic = topicList.length ? topicList.join(", ") : program.topic;
+    return `${program.major}${group ? ` (${group})` : ""}${topic ? ` - ${topic}` : ""}${Number(program.session) > 1 ? ` (${program.session}차시)` : ""}`;
   }
 
   function programMetaLabel(program, options = {}) {
@@ -4900,6 +5243,12 @@
     const next = new Date(date);
     next.setMonth(next.getMonth() + amount);
     return startOfMonth(next);
+  }
+
+  function addYears(date, amount) {
+    const next = new Date(date);
+    next.setFullYear(next.getFullYear() + amount);
+    return next;
   }
 
   function startOfMonth(date) {

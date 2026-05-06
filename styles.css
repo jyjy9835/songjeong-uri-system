@@ -220,6 +220,7 @@ button {
 
 .content {
   width: min(1520px, 100%);
+  min-width: 0;
   padding: 22px clamp(16px, 3vw, 34px) 42px;
 }
 
@@ -230,6 +231,7 @@ button {
 }
 
 .panel {
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--panel);
@@ -858,21 +860,24 @@ body.printing-monthly .closed-cancel {
 
 .topic-list-program-chip {
   justify-content: flex-start;
-  align-items: stretch;
-  gap: 3px;
+  align-items: center;
+  gap: 2px;
   padding-top: 6px;
 }
 
 .program-chip-topic-list {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  justify-content: center;
+  align-items: center;
   gap: 1px;
   width: 100%;
   color: inherit;
   font-size: 0.62rem;
   line-height: 1.1;
   letter-spacing: var(--program-topic-letter-spacing, 0);
-  text-align: left;
+  text-align: center;
 }
 
 .program-chip-topic-list span {
@@ -1323,11 +1328,16 @@ body.printing-monthly .closed-cancel {
 .work-stats-stack {
   display: grid;
   gap: 16px;
+  min-width: 0;
 }
 
 .work-stats-panel .panel-head > div {
   display: grid;
   gap: 4px;
+}
+
+.leave-stats-panel .panel-body {
+  overflow-x: hidden;
 }
 
 .stats-summary-grid {
@@ -1376,6 +1386,38 @@ body.printing-monthly .closed-cancel {
 
 .work-stats-table tbody th {
   background: #f3f7fb;
+}
+
+.leave-stats-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.leave-stats-table td {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.leave-stats-table th,
+.leave-stats-table td {
+  padding: 9px 8px;
+}
+
+.leave-stats-table td strong,
+.leave-stats-table td span {
+  display: block;
+}
+
+.leave-stats-table td strong {
+  color: var(--navy);
+  line-height: 1.35;
+}
+
+.leave-stats-table td span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 .timetable-shell {
@@ -2618,16 +2660,66 @@ body.printing-monthly .closed-cancel {
 }
 
 .teacher-list .person-row {
-  grid-template-columns: minmax(0, 1fr) 42px 64px 64px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-areas:
+    "name name name color"
+    "hire hire birthday birthday"
+    "update update delete delete";
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
 }
 
+.teacher-row [data-teacher-edit] {
+  grid-area: name;
+}
+
+.teacher-row .teacher-color-input {
+  grid-area: color;
+}
+
+.teacher-row .teacher-profile-field:first-of-type {
+  grid-area: hire;
+}
+
+.teacher-row .teacher-profile-field:last-of-type {
+  grid-area: birthday;
+}
+
+.teacher-row [data-update-teacher] {
+  grid-area: update;
+}
+
+.teacher-row [data-delete-teacher] {
+  grid-area: delete;
+}
+
+.teacher-row .ghost-button,
+.teacher-row .danger-button {
+  width: 100%;
+}
+
+.teacher-profile-field {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.teacher-profile-field span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.teacher-profile-field input {
+  min-width: 0;
+  width: 100%;
+}
+
 .teacher-color-input {
-  width: 42px;
-  min-width: 42px;
+  width: 100%;
+  min-width: 0;
   height: 38px;
   padding: 3px;
   border: 1px solid var(--line);
@@ -2636,8 +2728,20 @@ body.printing-monthly .closed-cancel {
 }
 
 .person-row .teacher-color-input {
-  width: 42px;
-  min-width: 42px;
+  width: 100%;
+  min-width: 0;
+}
+
+.field.club-topic-field {
+  display: none;
+}
+
+.club-program-mode [data-standard-topic-field] {
+  display: none;
+}
+
+.club-program-mode .field.club-topic-field {
+  display: grid;
 }
 
 .select-line {
@@ -2961,6 +3065,13 @@ body.printing-monthly .closed-cancel {
   .people-card .person-row,
   .teacher-list .person-row {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "name"
+      "color"
+      "hire"
+      "birthday"
+      "update"
+      "delete";
   }
 
   .people-card .person-row input,
