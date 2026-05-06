@@ -2151,16 +2151,12 @@
               <span>${h(row.baseLeaveStatus)}</span>
             </td>
             <td>
-              <strong>${h(row.birthdayLabel)}</strong>
-              <span>${h(row.birthdayStatus)}</span>
+              <strong>${h(row.specialLeaveLabel)}</strong>
+              <span>${h(row.specialLeaveStatus)}</span>
             </td>
             <td>
               <strong>${h(row.compLabel)}</strong>
               <span>토요일 전부 근무 시 오전반차</span>
-            </td>
-            <td>
-              <strong>${h(row.familyEventLabel)}</strong>
-              <span>경사 발생 시 ${SPECIAL_EVENT_LEAVE_DAYS}일</span>
             </td>
           </tr>
         `
@@ -2180,14 +2176,13 @@
             <thead>
               <tr>
                 <th>교사</th>
-                <th>입사 정보</th>
+                <th>입사일</th>
                 <th>연월차</th>
-                <th>생일 휴가</th>
-                <th>보상휴가</th>
-                <th>경조사 휴가</th>
+                <th>생일 및 경조사 휴가</th>
+                <th>토요일 근무 보상휴가</th>
               </tr>
             </thead>
-            <tbody>${rows || `<tr><td colspan="6">등록된 교사가 없습니다.</td></tr>`}</tbody>
+            <tbody>${rows || `<tr><td colspan="5">등록된 교사가 없습니다.</td></tr>`}</tbody>
           </table>
         </div>
       </section>
@@ -2338,6 +2333,23 @@
           ? `${formatLeaveUnits(annualGranted)} 지급 / ${formatLeaveUnits(annualUsed)} 사용 / ${formatLeaveUnits(Math.max(0, annualGranted - annualUsed))} 남음`
           : `${anniversaryIso} 지급 예정`
         : "입사일 필요";
+      const birthdayLabel = birthday
+        ? annualEligible
+          ? `${formatLeaveUnits(birthdayRemaining)} 남음`
+          : "근속 1년 후"
+        : "생일 필요";
+      const birthdayStatus = birthday
+        ? annualEligible
+          ? birthdayUsed
+            ? "올해 사용 완료"
+            : birthdayInWeek
+              ? "이번 생일 주간 사용 가능"
+              : "생일 주간에 사용 가능"
+          : "근속 1년 이상부터"
+        : "교사 관리에서 생일 입력";
+      const familyEventLabel = familyEventUsed
+        ? `${formatLeaveUnits(familyEventUsed)} 사용 / ${formatLeaveUnits(familyEventRemaining)} 남음`
+        : "사용 기록 없음";
 
       return {
         teacher,
@@ -2345,24 +2357,9 @@
         tenureLabel: hire ? tenureLabel(hire, today) : "입사일 필요",
         baseLeaveLabel: annualEligible ? annualLabel : monthlyLabel,
         baseLeaveStatus: hire ? (annualEligible ? "연차 자동 적용" : "월차 자동 적용") : "입사일 입력 후 자동 산정",
-        birthdayLabel: birthday
-          ? annualEligible
-            ? `${formatLeaveUnits(birthdayRemaining)} 남음`
-            : "근속 1년 후"
-          : "생일 필요",
-        birthdayStatus: birthday
-          ? annualEligible
-            ? birthdayUsed
-              ? "올해 사용 완료"
-              : birthdayInWeek
-                ? "이번 생일 주간 사용 가능"
-                : "생일 주간에 사용 가능"
-            : "근속 1년 이상부터"
-          : "교사 관리에서 생일 입력",
+        specialLeaveLabel: `생일 ${birthdayLabel} / 경조사 ${familyEventLabel}`,
+        specialLeaveStatus: `${birthdayStatus} · 경사 발생 시 ${SPECIAL_EVENT_LEAVE_DAYS}일`,
         compLabel: hire ? `${formatLeaveUnits(compEarned)} 발생 / ${formatLeaveUnits(compUsed)} 사용 / ${formatLeaveUnits(Math.max(0, compEarned - compUsed))} 남음` : "입사일 필요",
-        familyEventLabel: familyEventUsed
-          ? `${formatLeaveUnits(familyEventUsed)} 사용 / ${formatLeaveUnits(familyEventRemaining)} 남음`
-          : "사용 기록 없음"
       };
     });
   }
@@ -2456,8 +2453,7 @@
       years -= 1;
       months += 12;
     }
-    if (years <= 0 && months <= 0) return "1개월 미만";
-    return [years ? `${years}년` : "", months ? `${months}개월` : ""].filter(Boolean).join(" ");
+    return `근속기간 : ${Math.max(0, years)}년 ${Math.max(0, months)}월`;
   }
 
   function formatLeaveUnits(value) {
@@ -2536,7 +2532,6 @@
         <section class="panel span-4">
           <div class="panel-head">
             <h3>교사 관리</h3>
-            <span class="muted">입사일과 생일은 휴가 통계에 반영됩니다.</span>
           </div>
           <div class="panel-body">
             <form class="inline-add-form" data-add-teacher-form>
