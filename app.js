@@ -142,6 +142,7 @@
   let vacationCursor = startOfMonth(parseIsoDate(todayIso));
   let dailyDate = todayIso;
   let selectedTodayTeacher = "";
+  let observationUserFilter = "";
   let supportNoteEditor = null;
   let dayAbsentPickerOpen = false;
   let programDragId = "";
@@ -2028,6 +2029,11 @@
 
   function renderObservations() {
     const observations = [...state.observations].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const observationUsers = observations.map((item) => cleanSelectValue(item.user)).filter(Boolean).filter(unique);
+    if (observationUserFilter && !observationUsers.includes(observationUserFilter)) {
+      observationUserFilter = "";
+    }
+    const filteredObservations = observationUserFilter ? observations.filter((item) => cleanSelectValue(item.user) === observationUserFilter) : observations;
 
     app.innerHTML = `
       <div class="dashboard-grid">
@@ -2070,12 +2076,19 @@
         <section class="panel span-7">
           <div class="panel-head">
             <h3>최근 기록</h3>
-            <button class="ghost-button" data-print-observations type="button">선택 인쇄</button>
+            <div class="panel-actions observation-actions">
+              <select class="observation-user-filter" data-observation-user-filter aria-label="관찰 이용인 선택">
+                <option value="">전체 이용인</option>
+                ${observationUsers.map((user) => `<option value="${h(user)}" ${user === observationUserFilter ? "selected" : ""}>${h(user)}</option>`).join("")}
+              </select>
+              <button class="ghost-button" data-print-observations type="button">선택 인쇄</button>
+            </div>
           </div>
           <div class="panel-body">
             ${
               observations.length
-                ? `<div class="list">${observations
+                ? filteredObservations.length
+                  ? `<div class="list">${filteredObservations
                     .map(
                       (item) => `
                         <article class="list-item">
@@ -2092,9 +2105,10 @@
                       `
                     )
                     .join("")}</div>`
+                  : `<div class="empty">선택한 이용인의 관찰일지가 없습니다.</div>`
                 : `<div class="empty">아직 작성된 관찰일지가 없습니다.</div>`
             }
-            ${observations.length ? `<div class="observation-print-area">${renderObservationPrintSheet(observations)}</div>` : ""}
+            ${filteredObservations.length ? `<div class="observation-print-area">${renderObservationPrintSheet(filteredObservations)}</div>` : ""}
           </div>
         </section>
       </div>
@@ -2156,7 +2170,6 @@
             </td>
             <td>
               <strong>${h(row.compLabel)}</strong>
-              <span>토요일 전부 근무 시 오전반차</span>
             </td>
           </tr>
         `
@@ -2179,7 +2192,7 @@
                 <th>입사일</th>
                 <th>연월차</th>
                 <th>생일 및 경조사 휴가</th>
-                <th>토요일 근무 보상휴가</th>
+                <th>토요일 만근 보상 휴가</th>
               </tr>
             </thead>
             <tbody>${rows || `<tr><td colspan="5">등록된 교사가 없습니다.</td></tr>`}</tbody>
@@ -2319,8 +2332,9 @@
       const birthdayInWeek = Boolean(birthdayWeek && today >= birthdayWeek.start && today <= birthdayWeek.end);
       const birthdayGranted = annualEligible ? 1 : 0;
       const birthdayRemaining = birthdayGranted && birthdayInWeek && !birthdayUsed ? 1 : 0;
-      const compEarned = hire ? earnedCompLeaveUnits(teacher, hire, today) : 0;
-      const compUsed = leaveUses.comp.reduce((sum, item) => sum + item.units, 0);
+      const currentMonthIso = toIsoDate(startOfMonth(today));
+      const compEarned = hire ? earnedPreviousMonthCompLeaveUnits(teacher, hire, today) : 0;
+      const compUsed = leaveUses.comp.filter((item) => item.date >= currentMonthIso && item.date <= todayIso).reduce((sum, item) => sum + item.units, 0);
       const familyEventUsed = leaveUses.familyEvent.reduce((sum, item) => sum + item.units, 0);
       const familyEventRemaining = familyEventUsed ? Math.max(0, SPECIAL_EVENT_LEAVE_DAYS - familyEventUsed) : 0;
       const monthlyLabel = hire
@@ -2359,7 +2373,7 @@
         baseLeaveStatus: hire ? (annualEligible ? "연차 자동 적용" : "월차 자동 적용") : "입사일 입력 후 자동 산정",
         specialLeaveLabel: `생일 ${birthdayLabel} / 경조사 ${familyEventLabel}`,
         specialLeaveStatus: `${birthdayStatus} · 경사 발생 시 ${SPECIAL_EVENT_LEAVE_DAYS}일`,
-        compLabel: hire ? `${formatLeaveUnits(compEarned)} 발생 / ${formatLeaveUnits(compUsed)} 사용 / ${formatLeaveUnits(Math.max(0, compEarned - compUsed))} 남음` : "입사일 필요",
+        compLabel: hire ? formatLeaveCount(Math.max(0, compEarned - compUsed)) : formatLeaveCount(0),
       };
     });
   }
@@ -2396,20 +2410,33 @@
     return Math.min(11, count);
   }
 
-  function earnedCompLeaveUnits(teacher, hire, today) {
-    let units = 0;
-    const cursor = startOfMonth(hire);
-    const currentMonthStart = startOfMonth(today);
+  function earnedPreviousMonthCompLeaveUnits(teacher, hire, today) {
+    const targetMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const saturdays = eligibleCompLeaveSaturdays(targetMonth).filter((date) => date >= hire);
+    if (!saturdays.length) return 0;
+    return saturdays.every((date) => teacherWorkedOnDate(teacher, toIsoDate(date))) ? 0.5 : 0;
+  }
 
-    while (cursor < currentMonthStart) {
-      const saturdays = saturdaysInMonth(cursor).filter((date) => date >= hire);
-      if (saturdays.length && saturdays.every((date) => teacherWorkedOnDate(teacher, toIsoDate(date)))) {
-        units += 0.5;
-      }
-      cursor.setMonth(cursor.getMonth() + 1);
-    }
+  function eligibleCompLeaveSaturdays(monthDate) {
+    return saturdaysInMonth(monthDate).filter((date) => {
+      const iso = toIsoDate(date);
+      return !isClosedDate(iso) && centerClassHeldOnDate(iso);
+    });
+  }
 
-    return units;
+  function centerClassHeldOnDate(date) {
+    const daySchedule = state.dailySchedules?.[date];
+    if (!daySchedule) return false;
+
+    return Object.entries(daySchedule).some(([slot, slotRecord]) => {
+      const rawSlot = String(slot || "").split("||")[0];
+      if (isDismissalSlot(rawSlot)) return false;
+      return normalizeScheduleSlot(slotRecord).groups.some(centerClassGroupHasContent);
+    });
+  }
+
+  function centerClassGroupHasContent(group = {}) {
+    return Boolean(cleanSelectValue(group.program) || cleanSelectValue(group.room) || groupTeacherList(group).length || normalizeUserList(group.users).length);
   }
 
   function teacherWorkedOnDate(teacher, date) {
@@ -2459,6 +2486,11 @@
   function formatLeaveUnits(value) {
     const units = Math.max(0, Number(value) || 0);
     return `${Number.isInteger(units) ? units : units.toFixed(1)}일`;
+  }
+
+  function formatLeaveCount(value) {
+    const units = Math.max(0, Number(value) || 0);
+    return `${Number.isInteger(units) ? units : units.toFixed(1)}개`;
   }
 
   function addWorkMinutes(byTeacher, totals, teacher, field, minutes) {
@@ -2529,7 +2561,7 @@
             </div>
           </div>
         </section>
-        <section class="panel span-4">
+        <section class="panel span-4 teacher-management-panel">
           <div class="panel-head">
             <h3>교사 관리</h3>
           </div>
@@ -5669,6 +5701,12 @@
     if (target.matches("[data-transport-copy-filter]")) {
       transportCopyFilter = target.value || "all";
       renderVacation();
+      return;
+    }
+
+    if (target.matches("[data-observation-user-filter]")) {
+      observationUserFilter = target.value || "";
+      renderObservations();
       return;
     }
 

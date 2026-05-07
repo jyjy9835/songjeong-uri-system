@@ -2605,6 +2605,10 @@ body.printing-monthly .closed-cancel {
 
 .teacher-list {
   margin-top: 12px;
+  max-height: min(620px, calc(100vh - 370px));
+  overflow-y: auto;
+  padding-right: 4px;
+  align-content: start;
 }
 
 .person-row {
@@ -2755,6 +2759,20 @@ body.printing-monthly .closed-cancel {
   width: 16px;
   height: 16px;
   accent-color: var(--green);
+}
+
+.observation-actions {
+  align-items: center;
+}
+
+.observation-user-filter {
+  min-height: 42px;
+  min-width: 160px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  background: #fff;
+  color: var(--ink);
 }
 
 .observation-print-area {
