@@ -1,6 +1,7 @@
 (() => {
   const STORAGE_KEY = "songjeong-uri-system-data-v2";
   const ACTIVE_VIEW_KEY = "songjeong-active-view";
+  const VACATION_PANEL_KEY = "songjeong-vacation-panel";
   const ADMIN_SESSION_KEY = "songjeong-admin-unlocked";
   const CLIENT_ID_KEY = "songjeong-client-id";
   const SHARED_DATA_URL = "/.netlify/functions/shared-data";
@@ -43,10 +44,18 @@
   const DEFAULT_DAY_DISMISSAL_PROGRAM = "하원 지도";
   const DAY_DISMISSAL_ROOM = "차량";
   const CORE_PROGRAM_OPTIONS = ["등원 / 출석 확인", "등원 및 개별학습", "점심식사 및 양치질 지도", "돌봄 / 서류 업무", "하원 준비", DEFAULT_DAY_DISMISSAL_PROGRAM, "개별지원"];
+  const DAY_USER_GROUP_KEYS = ["dayA", "dayB"];
+  const AFTERCARE_USER_GROUP_KEYS = ["afterMonTueThuSat", "afterWedFriSat"];
   const USER_GROUPS = [
-    { key: "day", label: "주간" },
+    { key: "dayA", label: "주간 A그룹" },
+    { key: "dayB", label: "주간 B그룹" },
     { key: "afterMonTueThuSat", label: "방과후(월화목토)" },
     { key: "afterWedFriSat", label: "방과후(수금토)" }
+  ];
+  const ASSIGNMENT_GROUPS = [
+    { label: "주간 이용인", keys: DAY_USER_GROUP_KEYS },
+    { label: "방과후 이용인 (월화목토)", keys: ["afterMonTueThuSat"] },
+    { label: "방과후 이용인 (수금)", keys: ["afterWedFriSat"] }
   ];
   const SERVICE_CALENDARS = [
     { key: "day", title: "주간 프로그램 (월~금)", service: "주간", allowedDays: [1, 2, 3, 4, 5], periodCount: 4 },
@@ -137,11 +146,19 @@
 
   const todayIso = toIsoDate(new Date());
   let currentView = localStorage.getItem(ACTIVE_VIEW_KEY) || "home";
+  let vacationPanel = localStorage.getItem(VACATION_PANEL_KEY) || "schedule";
+  if (currentView === "stats") {
+    currentView = "vacation";
+    vacationPanel = "leave";
+  }
   let state = normalizeState(loadLocalState());
   let monthlyCursor = startOfMonth(parseIsoDate(todayIso));
   let vacationCursor = startOfMonth(parseIsoDate(todayIso));
   let dailyDate = todayIso;
   let selectedTodayTeacher = "";
+  let selectedAssignmentTeacher = "";
+  let assignmentEditMode = false;
+  let assignmentDraft = null;
   let observationUserFilter = "";
   let supportNoteEditor = null;
   let dayAbsentPickerOpen = false;
@@ -166,9 +183,8 @@
     monthly: "월간 프로그램",
     daily: "일일 시간표",
     people: "이용인·교사 관리",
-    vacation: "휴가·송영 관리",
+    vacation: "휴가 일정 및 송영 담당",
     observations: "관찰일지",
-    stats: "근무 통계",
     settings: "기본 설정"
   };
 
@@ -261,6 +277,7 @@
         }
       ],
       observations: [],
+      userSubstitutes: {},
       settings: {
         teachers: ["담당자1", "담당자2", "담당자3", "협력기관"],
         teacherColors: {
@@ -277,10 +294,12 @@
         },
         users: ["이용인1", "이용인2", "이용인3", "이용인4"],
         userGroups: {
-          day: ["이용인1", "이용인2"],
+          dayA: ["이용인1"],
+          dayB: ["이용인2"],
           afterMonTueThuSat: ["이용인3"],
           afterWedFriSat: ["이용인4"]
         },
+        userAssignments: {},
         rooms: ROOM_OPTIONS,
         timeSlots: CANONICAL_TIME_SLOTS,
         adminPin: "0000"
@@ -447,6 +466,7 @@
     }
 
     if (!Array.isArray(next.observations)) next.observations = [];
+    next.observations = next.observations.map(normalizeObservation);
     next.majorThemes = normalizeMajorThemeList(next.majorThemes);
     if (!next.majorThemes.length) {
       next.majorThemes = base.majorThemes;
@@ -477,6 +497,8 @@
     next.settings.users = flattenUserGroups(next.settings.userGroups);
     next.settings.teacherColors = normalizeTeacherColors(next.settings.teacherColors, next.settings.teachers);
     next.settings.teacherProfiles = normalizeTeacherProfiles(next.settings.teacherProfiles, next.settings.teachers);
+    next.settings.userAssignments = normalizeUserAssignments(next.settings.userAssignments, next.settings.users, next.settings.teachers);
+    next.userSubstitutes = normalizeUserSubstitutes(next.userSubstitutes, next.settings.users, next.settings.teachers);
     next.closedDates = Array.isArray(input.closedDates) ? input.closedDates.map(cleanSelectValue).filter(Boolean).filter(unique) : [];
 
     return next;
@@ -518,6 +540,18 @@
     };
   }
 
+  function normalizeObservation(entry = {}) {
+    return {
+      id: entry.id || uid("obs"),
+      date: entry.date || todayIso,
+      user: cleanSelectValue(entry.user),
+      teacher: cleanSelectValue(entry.teacher),
+      activity: cleanSelectValue(entry.activity),
+      summary: cleanSelectValue(entry.summary),
+      highlights: normalizeHighlightTerms(entry.highlights || entry.highlightTerms || entry.highlight)
+    };
+  }
+
   function normalizeMoveType(entry = {}) {
     const type = cleanSelectValue(entry.type);
     const text = `${type} ${entry.time || ""} ${entry.route || ""} ${entry.memo || ""} ${entry.note || ""}`;
@@ -547,13 +581,53 @@
           groups[group.key] = input[group.key].map(cleanSelectValue).filter(Boolean).filter(unique);
         }
       });
+
+      if (Array.isArray(input.day) && !groups.dayA.length && !groups.dayB.length) {
+        groups.dayA = input.day.map(cleanSelectValue).filter(Boolean).filter(unique);
+      }
     }
 
     if (!flattenUserGroups(groups).length) {
-      groups.day = fallbackUsers.map(cleanSelectValue).filter(Boolean).filter(unique);
+      groups.dayA = fallbackUsers.map(cleanSelectValue).filter(Boolean).filter(unique);
     }
 
     return groups;
+  }
+
+  function normalizeUserAssignments(input, users = [], teachers = []) {
+    const userSet = new Set(users.map(cleanSelectValue).filter(Boolean));
+    const teacherSet = new Set(teachers.map(cleanSelectValue).filter(Boolean));
+    const assignments = {};
+    if (!input || typeof input !== "object") return assignments;
+
+    Object.entries(input).forEach(([user, teacher]) => {
+      const userName = cleanSelectValue(user);
+      const teacherName = cleanSelectValue(teacher);
+      if (userSet.has(userName) && teacherSet.has(teacherName)) {
+        assignments[userName] = teacherName;
+      }
+    });
+    return assignments;
+  }
+
+  function normalizeUserSubstitutes(input, users = [], teachers = []) {
+    const userSet = new Set(users.map(cleanSelectValue).filter(Boolean));
+    const teacherSet = new Set(teachers.map(cleanSelectValue).filter(Boolean));
+    const substitutes = {};
+    if (!input || typeof input !== "object") return substitutes;
+
+    Object.entries(input).forEach(([date, entries]) => {
+      const iso = normalizeDateInput(date);
+      if (!iso || !entries || typeof entries !== "object") return;
+      Object.entries(entries).forEach(([user, teacher]) => {
+        const userName = cleanSelectValue(user);
+        const teacherName = cleanSelectValue(teacher);
+        if (!userSet.has(userName) || !teacherSet.has(teacherName)) return;
+        if (!substitutes[iso]) substitutes[iso] = {};
+        substitutes[iso][userName] = teacherName;
+      });
+    });
+    return substitutes;
   }
 
   function flattenUserGroups(groups = state.settings.userGroups) {
@@ -566,6 +640,8 @@
   function syncUsersFromGroups() {
     state.settings.userGroups = normalizeUserGroups(state.settings.userGroups, state.settings.users);
     state.settings.users = flattenUserGroups(state.settings.userGroups);
+    state.settings.userAssignments = normalizeUserAssignments(state.settings.userAssignments, state.settings.users, state.settings.teachers);
+    state.userSubstitutes = normalizeUserSubstitutes(state.userSubstitutes, state.settings.users, state.settings.teachers);
   }
 
   function normalizeTeacherColors(input, teachers) {
@@ -826,6 +902,12 @@
   }
 
   function render() {
+    if (currentView === "stats") {
+      currentView = "vacation";
+      vacationPanel = "leave";
+      localStorage.setItem(ACTIVE_VIEW_KEY, currentView);
+      localStorage.setItem(VACATION_PANEL_KEY, vacationPanel);
+    }
     title.textContent = titles[currentView] || titles.home;
     eyebrow.textContent = currentView === "home" ? "업무 대시보드" : "업무 관리";
     todayLabel.textContent = formatLongDate(todayIso);
@@ -837,7 +919,6 @@
     if (currentView === "people") renderPeople();
     if (currentView === "vacation") renderVacation();
     if (currentView === "observations") renderObservations();
-    if (currentView === "stats") renderStats();
     if (currentView === "settings") renderSettings();
   }
 
@@ -941,6 +1022,26 @@
   }
 
   function renderVacation() {
+    const panelTabs = `
+      <div class="vacation-panel-tabs" role="tablist" aria-label="휴가 관리 화면">
+        <button class="ghost-button ${vacationPanel === "schedule" ? "active" : ""}" data-vacation-panel="schedule" type="button">휴가 일정 및 송영 담당</button>
+        <button class="ghost-button ${vacationPanel === "leave" ? "active" : ""}" data-vacation-panel="leave" type="button">휴가 관리</button>
+      </div>
+    `;
+
+    if (vacationPanel === "leave") {
+      app.innerHTML = `
+        <div class="toolbar-row">
+          <div class="toolbar-left"></div>
+          <div class="toolbar-right">
+            ${panelTabs}
+          </div>
+        </div>
+        ${renderTeacherLeaveStatsPanel()}
+      `;
+      return;
+    }
+
     app.innerHTML = `
       <div class="toolbar-row">
         <div class="toolbar-left">
@@ -958,6 +1059,7 @@
             </select>
           </label>
           <button class="primary-button" data-print-transport type="button">A4 인쇄</button>
+          ${panelTabs}
           <span class="muted">휴무와 공휴일은 월간 프로그램 달력과 동일하게 표시됩니다.</span>
         </div>
       </div>
@@ -1570,7 +1672,7 @@
 
   function renderDayAbsentUserPicker(absentUsers = []) {
     const selected = new Set(absentUsers);
-    const users = (state.settings.userGroups?.day || []).filter(unique);
+    const users = DAY_USER_GROUP_KEYS.flatMap((key) => state.settings.userGroups?.[key] || []).filter(unique);
 
     if (!users.length) return `<span class="muted">등록된 이용인 없음</span>`;
 
@@ -1591,7 +1693,7 @@
                     (user) => `
                       <label class="check-row">
                         <input data-day-absent-user type="checkbox" value="${h(user)}" ${selected.has(user) ? "checked" : ""} />
-                        <span>${h(user)}</span>
+                        ${renderUserNameBadge(user, dailyDate)}
                       </label>
                     `
                   )
@@ -1797,7 +1899,7 @@
                 (user) => `
                   <label class="check-row">
                     <input data-aftercare-draft-user type="checkbox" value="${h(user)}" />
-                    <span>${h(user)}</span>
+                    ${renderUserNameBadge(user, date)}
                   </label>
                 `
               )
@@ -1816,7 +1918,7 @@
                   .map(
                     (group) => `
                       <div class="aftercare-entry">
-                        <span><b>${h(group.label)}</b> ${h(group.users.join(", "))}</span>
+                        <span><b>${h(group.label)}</b> ${renderUserNameList(group.users, date)}</span>
                         <button class="mini-button danger-mini" data-remove-aftercare-item="${h(group.ids.join(","))}" type="button">삭제</button>
                       </div>
                     `
@@ -1909,6 +2011,7 @@
     const usedByOtherGroups = new Set(groups.filter((item) => item.id !== group.id).flatMap((item) => normalizeUserList(item.users)));
     const allowedGroups = allowedUserGroupsForSlot(slot);
     const absentUsers = absentAftercareUsers(date);
+    const vacationTeachers = vacationTeachersForDate(date);
 
     return `
       <div class="people-picker" data-schedule-group data-slot="${h(slot)}" data-group-id="${h(group.id)}">
@@ -1923,10 +2026,13 @@
                   const isAbsent = absentUsers.has(user);
                   const isDisabled = isAbsent || (!isChecked && usedByOtherGroups.has(user));
                   return `
-                    <label class="check-row ${isDisabled ? "disabled" : ""}">
-                      <input data-schedule-user type="checkbox" value="${h(user)}" ${isChecked ? "checked" : ""} ${isDisabled ? "disabled" : ""} />
-                      <span>${h(user)}${isAbsent ? " (결석)" : ""}</span>
-                    </label>
+                    <div class="user-check-item ${isDisabled ? "disabled" : ""}">
+                      <label class="check-row ${isDisabled ? "disabled" : ""}">
+                        <input data-schedule-user type="checkbox" value="${h(user)}" ${isChecked ? "checked" : ""} ${isDisabled ? "disabled" : ""} />
+                        ${renderUserNameBadge(user, date, isAbsent ? " (결석)" : "")}
+                      </label>
+                      ${renderUserSubstituteSelect(date, user, vacationTeachers)}
+                    </div>
                   `;
                 })
                 .join("")}
@@ -2067,6 +2173,10 @@
                 <span>내용</span>
                 <textarea name="summary" placeholder="관찰 내용을 입력하세요." required></textarea>
               </label>
+              <label class="field full">
+                <span>빨간 하이라이트</span>
+                <input name="highlights" placeholder="예: 공격행동, 자해, 울음" />
+              </label>
               <div class="modal-actions field full">
                 <button class="primary-button" type="submit">저장</button>
               </div>
@@ -2097,7 +2207,7 @@
                             <strong>${h(item.user || "이용인 미지정")} · ${h(item.activity || "관찰 시간 미입력")}</strong>
                           </label>
                           <small>${h(formatShortDate(item.date))} / ${teacherBadge(item.teacher, "관찰자 미지정")}</small>
-                          <span>${h(item.summary)}</span>
+                          <span class="observation-summary">${renderHighlightedText(item.summary, item.highlights)}</span>
                           <div>
                             <button class="danger-button" data-delete-observation="${h(item.id)}" type="button">삭제</button>
                           </div>
@@ -2127,7 +2237,7 @@
                   <strong>${h(item.user || "이용인 미지정")}</strong>
                   <span>${h(formatShortDate(item.date))} / ${teacherBadge(item.teacher, "관찰자 미지정")} / ${h(item.activity || "관찰 시간 미입력")}</span>
                 </header>
-                <p>${h(item.summary)}</p>
+                <p>${renderHighlightedText(item.summary, item.highlights)}</p>
               </article>
             `
           )
@@ -2139,6 +2249,27 @@
     `;
   }
 
+  function renderHighlightedText(text, terms = []) {
+    const source = String(text || "");
+    const highlights = normalizeHighlightTerms(terms).sort((a, b) => b.length - a.length);
+    if (!source || !highlights.length) return h(source);
+
+    const pattern = highlights.map(escapeRegExp).join("|");
+    const regex = new RegExp(`(${pattern})`, "gi");
+    return source
+      .split(regex)
+      .map((part) => {
+        if (!part) return "";
+        const isHighlight = highlights.some((term) => term.toLowerCase() === part.toLowerCase());
+        return isHighlight ? `<mark class="red-highlight">${h(part)}</mark>` : h(part);
+      })
+      .join("");
+  }
+
+  function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
   function renderStats() {
     const periods = workStatPeriods();
 
@@ -2147,6 +2278,20 @@
         ${renderTeacherLeaveStatsPanel()}
         ${periods.map(renderWorkStatsPanel).join("")}
       </div>
+    `;
+  }
+
+  function renderUserSubstituteSelect(date, user, vacationTeachers = vacationTeachersForDate(date)) {
+    const assignedTeacher = assignedTeacherForUser(user);
+    if (!assignedTeacher || !vacationTeachers.has(assignedTeacher)) return "";
+
+    const selected = substituteTeacherForUser(date, user);
+    const teachers = (state.settings.teachers || []).filter((teacher) => teacher !== assignedTeacher && !vacationTeachers.has(teacher));
+    return `
+      <select class="user-substitute-select" data-user-substitute-teacher="${h(user)}" aria-label="${h(user)} 대체 교사">
+        <option value="">대체 교사</option>
+        ${teachers.map((teacher) => `<option value="${h(teacher)}" ${teacher === selected ? "selected" : ""}>${h(teacher)}</option>`).join("")}
+      </select>
     `;
   }
 
@@ -2548,6 +2693,13 @@
 
   function renderPeople() {
     syncUsersFromGroups();
+    const teachers = state.settings.teachers || [];
+    if ((!selectedAssignmentTeacher || !teachers.includes(selectedAssignmentTeacher)) && teachers.length) {
+      selectedAssignmentTeacher = teachers[0];
+    }
+    if (assignmentEditMode) {
+      assignmentDraft = normalizeUserAssignments(assignmentDraft || state.settings.userAssignments, state.settings.users, teachers);
+    }
 
     app.innerHTML = `
       <div class="dashboard-grid">
@@ -2575,6 +2727,7 @@
             </div>
           </div>
         </section>
+        ${renderTeacherUserAssignmentPanel()}
       </div>
     `;
   }
@@ -2608,6 +2761,89 @@
         <button class="ghost-button" data-update-user="${h(user)}" data-user-group="${h(groupKey)}" type="button">수정</button>
         <button class="danger-button" data-delete-user="${h(user)}" data-user-group="${h(groupKey)}" type="button">삭제</button>
       </div>
+    `;
+  }
+
+  function renderTeacherUserAssignmentPanel() {
+    const teachers = state.settings.teachers || [];
+    const selectedTeacher = teachers.includes(selectedAssignmentTeacher) ? selectedAssignmentTeacher : teachers[0] || "";
+
+    return `
+      <section class="panel span-12 teacher-assignment-panel">
+        <div class="panel-head">
+          <h3>담당 이용인 관리</h3>
+          <div class="panel-actions assignment-actions">
+            <button class="ghost-button" data-edit-assignments type="button" ${assignmentEditMode || !selectedTeacher ? "disabled" : ""}>수정</button>
+            <button class="primary-button" data-save-assignments type="button" ${assignmentEditMode && selectedTeacher ? "" : "disabled"}>저장</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          ${
+            selectedTeacher
+              ? `<div class="teacher-assignment-grid ${assignmentEditMode ? "is-editing" : "is-viewing"}">
+                  <label class="assignment-teacher-field">
+                    <span>교사</span>
+                    <select data-assignment-teacher-select>
+                      ${teachers.map((teacher) => `<option value="${h(teacher)}" ${teacher === selectedTeacher ? "selected" : ""}>${h(teacher)}</option>`).join("")}
+                    </select>
+                  </label>
+                  ${ASSIGNMENT_GROUPS.map((group) =>
+                    assignmentEditMode ? renderAssignmentUserColumn(group, selectedTeacher) : renderAssignmentSummaryColumn(group, selectedTeacher)
+                  ).join("")}
+                </div>`
+              : `<div class="empty">등록된 교사가 없습니다.</div>`
+          }
+        </div>
+      </section>
+    `;
+  }
+
+  function renderAssignmentUserColumn(group, selectedTeacher) {
+    const users = group.keys.flatMap((key) => state.settings.userGroups?.[key] || []).filter(unique);
+    const assignments = assignmentEditMode ? assignmentDraft || state.settings.userAssignments : state.settings.userAssignments;
+    return `
+      <section class="assignment-user-column">
+        <h4>${h(group.label)}</h4>
+        <div class="assignment-user-list">
+          ${
+            users.length
+              ? users
+                  .map((user) => {
+                    const assignedTeacher = assignedTeacherForUser(user, assignments);
+                    const checked = assignedTeacher === selectedTeacher;
+                    return `
+                      <label class="check-row assignment-check-row ${assignedTeacher && !checked ? "assigned-other" : ""}">
+                        <input data-user-assignment type="checkbox" value="${h(user)}" ${checked ? "checked" : ""} />
+                        ${renderUserNameBadge(user)}
+                        ${assignedTeacher && !checked ? `<small>${h(assignedTeacher)}</small>` : ""}
+                      </label>
+                    `;
+                  })
+                  .join("")
+              : `<div class="empty compact">등록된 이용인이 없습니다.</div>`
+          }
+        </div>
+      </section>
+    `;
+  }
+
+  function renderAssignmentSummaryColumn(group, selectedTeacher) {
+    const users = group.keys
+      .flatMap((key) => state.settings.userGroups?.[key] || [])
+      .filter(unique)
+      .filter((user) => assignedTeacherForUser(user) === selectedTeacher);
+
+    return `
+      <section class="assignment-user-column assignment-summary-column">
+        <h4>${h(group.label)}</h4>
+        <div class="assignment-user-list">
+          ${
+            users.length
+              ? users.map((user) => `<div class="assignment-summary-row">${renderUserNameBadge(user)}</div>`).join("")
+              : `<div class="empty compact">담당 이용인이 없습니다.</div>`
+          }
+        </div>
+      </section>
     `;
   }
 
@@ -2912,12 +3148,12 @@
             ${programSpans[index] > 0 ? `<td rowspan="${programSpans[index]}">${h(group.program || "")}</td>` : ""}
             ${programSpans[index] > 0 ? `<td rowspan="${programSpans[index]}">${h(group.room || "")}</td>` : ""}
             <td>${teacherBadgeList(groupTeacherList(group), "")}</td>
-            <td>${h(normalizeUserList(group.users).join(", "))}</td>
+            <td>${renderUserNameList(normalizeUserList(group.users), date)}</td>
             ${
               index === 0
                 ? aftercare
                   ? options.showAftercareInfo
-                    ? `<td class="aftercare-print-cell" colspan="3" rowspan="${options.aftercareRowSpan || rowSpan}">${renderAftercarePrint(getAftercareInfo(date))}</td>`
+                    ? `<td class="aftercare-print-cell" colspan="3" rowspan="${options.aftercareRowSpan || rowSpan}">${renderAftercarePrint(getAftercareInfo(date), date)}</td>`
                     : ""
                   : SUPPORT_FIELDS.map((field) => `<td rowspan="${rowSpan}">${renderSupportPrintCell(slotRecord, field)}</td>`).join("")
                 : ""
@@ -2940,7 +3176,7 @@
             <td>${h(dayDismissalProgram(group))}</td>
             <td>${h(group.room || "")}</td>
             <td>${teacherBadgeList(groupTeacherList(group), "")}</td>
-            <td>${h(normalizeUserList(group.users).join(", "))}</td>
+            <td>${renderUserNameList(normalizeUserList(group.users), date)}</td>
             ${
               index === 0
                 ? SUPPORT_FIELDS.map((field) => `<td rowspan="${rowSpan}">${renderSupportPrintCell(slotRecord, field)}</td>`).join("")
@@ -2982,22 +3218,25 @@
         <th class="time-label">${formatSlotLabel(slot)}</th>
         <td class="dismissal-label" colspan="2">하원 송영</td>
         <td>${teacherBadgeList(groupTeacherList(targetGroup), "")}</td>
-        <td colspan="${userColspan}">${h(normalizeUserList(targetGroup.users).join(", "))}</td>
+        <td colspan="${userColspan}">${renderUserNameList(normalizeUserList(targetGroup.users), date)}</td>
       </tr>
     `;
   }
 
-  function renderAftercarePrint(info) {
+  function renderAftercarePrint(info, date = "") {
     const value = normalizeAfterInfo(info);
-    const rows = groupAftercareItems(value.items).map((group) => [group.label, group.users.join(", ")]);
-    if (value.memo) rows.push(["전달", value.memo]);
+    const rows = groupAftercareItems(value.items).map((group) => ({
+      label: group.label,
+      value: renderUserNameList(group.users, date)
+    }));
+    if (value.memo) rows.push({ label: "전달", value: h(value.memo) });
 
     if (!rows.length) return "";
 
     return `
       <div class="aftercare-print">
         <strong>등하원 정보 및 전달 사항</strong>
-        ${rows.map(([label, text]) => `<span><b>${h(label)}</b> ${h(text)}</span>`).join("")}
+        ${rows.map((row) => `<span><b>${h(row.label)}</b> ${row.value}</span>`).join("")}
       </div>
     `;
   }
@@ -3569,7 +3808,8 @@
       user: data.get("user"),
       teacher: data.get("teacher"),
       activity: String(data.get("activity") || "").trim(),
-      summary: String(data.get("summary") || "").trim()
+      summary: String(data.get("summary") || "").trim(),
+      highlights: normalizeHighlightTerms(data.get("highlights"))
     });
 
     saveState("관찰일지가 저장되었습니다.");
@@ -3611,7 +3851,8 @@
   function updateUser(button) {
     const groupKey = button.dataset.userGroup;
     const oldName = button.dataset.updateUser;
-    const input = button.closest(".person-row")?.querySelector("[data-user-edit]");
+    const row = button.closest(".person-row");
+    const input = row?.querySelector("[data-user-edit]");
     const newName = cleanSelectValue(input?.value);
     if (!newName || !state.settings.userGroups[groupKey]) return;
     if (newName === oldName) return;
@@ -3639,6 +3880,40 @@
     removeUserFromRecords(name);
     syncUsersFromGroups();
     saveState("이용인이 삭제되었습니다.");
+    renderPeople();
+  }
+
+  function updateAssignmentTeacher(target) {
+    selectedAssignmentTeacher = target.value || "";
+    renderPeople();
+  }
+
+  function editAssignments() {
+    assignmentEditMode = true;
+    assignmentDraft = normalizeUserAssignments({ ...state.settings.userAssignments }, state.settings.users, state.settings.teachers);
+    renderPeople();
+  }
+
+  function saveAssignments() {
+    if (!assignmentEditMode) return;
+    state.settings.userAssignments = normalizeUserAssignments(assignmentDraft, state.settings.users, state.settings.teachers);
+    assignmentEditMode = false;
+    assignmentDraft = null;
+    saveState("담당 이용인이 저장되었습니다.");
+    renderPeople();
+  }
+
+  function updateUserAssignment(target) {
+    const user = cleanSelectValue(target.value);
+    const teacher = cleanSelectValue(selectedAssignmentTeacher);
+    if (!assignmentEditMode || !user || !teacher) return;
+
+    assignmentDraft = normalizeUserAssignments(assignmentDraft || state.settings.userAssignments, state.settings.users, state.settings.teachers);
+    if (target.checked) {
+      assignmentDraft[user] = teacher;
+    } else if (assignmentDraft[user] === teacher) {
+      delete assignmentDraft[user];
+    }
     renderPeople();
   }
 
@@ -3759,6 +4034,17 @@
       ...entry,
       user: entry.user === oldName ? newName : entry.user
     }));
+
+    if (state.settings.userAssignments?.[oldName]) {
+      state.settings.userAssignments[newName] = state.settings.userAssignments[oldName];
+      delete state.settings.userAssignments[oldName];
+    }
+
+    Object.values(state.userSubstitutes || {}).forEach((entries) => {
+      if (!entries || typeof entries !== "object" || !(oldName in entries)) return;
+      entries[newName] = entries[oldName];
+      delete entries[oldName];
+    });
   }
 
   function removeUserFromRecords(name) {
@@ -3775,6 +4061,11 @@
       ...entry,
       user: entry.user === name ? "" : entry.user
     }));
+
+    delete state.settings.userAssignments?.[name];
+    Object.values(state.userSubstitutes || {}).forEach((entries) => {
+      if (entries && typeof entries === "object") delete entries[name];
+    });
   }
 
   function replaceTeacherInRecords(oldName, newName) {
@@ -3792,6 +4083,17 @@
       ...entry,
       teacher: entry.teacher === oldName ? newName : entry.teacher
     }));
+
+    Object.entries(state.settings.userAssignments || {}).forEach(([user, teacher]) => {
+      if (teacher === oldName) state.settings.userAssignments[user] = newName;
+    });
+
+    Object.values(state.userSubstitutes || {}).forEach((entries) => {
+      if (!entries || typeof entries !== "object") return;
+      Object.entries(entries).forEach(([user, teacher]) => {
+        if (teacher === oldName) entries[user] = newName;
+      });
+    });
 
     Object.values(state.dailySchedules || {}).forEach((daySchedule) => {
       Object.values(daySchedule || {}).forEach((slotRecord) => {
@@ -3871,6 +4173,17 @@
       if (Array.isArray(reports[REPORT_HIDDEN_KEY])) {
         reports[REPORT_HIDDEN_KEY] = reports[REPORT_HIDDEN_KEY].filter((teacher) => teacher !== name);
       }
+    });
+
+    Object.entries(state.settings.userAssignments || {}).forEach(([user, teacher]) => {
+      if (teacher === name) delete state.settings.userAssignments[user];
+    });
+
+    Object.values(state.userSubstitutes || {}).forEach((entries) => {
+      if (!entries || typeof entries !== "object") return;
+      Object.entries(entries).forEach(([user, teacher]) => {
+        if (teacher === name) delete entries[user];
+      });
     });
   }
 
@@ -4303,6 +4616,23 @@
     group.users = Array.from(wrapper.querySelectorAll("[data-schedule-user]:checked")).map((input) => input.value);
     state.dailySchedules[dailyDate][wrapper.dataset.slot] = sanitizeScheduleSlot(getScheduleSlot(dailyDate, wrapper.dataset.slot), wrapper.dataset.slot);
     saveState("시간표가 저장되었습니다.");
+    renderDaily();
+  }
+
+  function updateUserSubstitute(target) {
+    const user = cleanSelectValue(target.dataset.userSubstituteTeacher);
+    const teacher = cleanSelectValue(target.value);
+    if (!user) return;
+
+    state.userSubstitutes = state.userSubstitutes || {};
+    if (!state.userSubstitutes[dailyDate]) state.userSubstitutes[dailyDate] = {};
+    if (teacher) {
+      state.userSubstitutes[dailyDate][user] = teacher;
+    } else {
+      delete state.userSubstitutes[dailyDate][user];
+    }
+    if (!Object.keys(state.userSubstitutes[dailyDate]).length) delete state.userSubstitutes[dailyDate];
+    saveState("대체 교사가 저장되었습니다.");
     renderDaily();
   }
 
@@ -4875,6 +5205,11 @@
       .filter(unique);
   }
 
+  function normalizeHighlightTerms(value) {
+    const source = Array.isArray(value) ? value : String(value || "").split(/[,/|\n]+/);
+    return source.map(cleanSelectValue).filter(Boolean).filter(unique);
+  }
+
   function cleanSelectValue(value) {
     return String(value || "").trim();
   }
@@ -4904,8 +5239,8 @@
 
   function allowedUserGroupsForSlot(slot) {
     const start = slotStartMinutes(slot);
-    if (start >= 16 * 60) return ["afterMonTueThuSat", "afterWedFriSat"];
-    return ["day"];
+    if (start >= 16 * 60) return AFTERCARE_USER_GROUP_KEYS;
+    return DAY_USER_GROUP_KEYS;
   }
 
   function isAftercareSlot(slot) {
@@ -5059,6 +5394,33 @@
     return state.settings.teacherColors?.[teacher] || "#4b5563";
   }
 
+  function assignedTeacherForUser(user, assignments = state.settings.userAssignments) {
+    const name = cleanSelectValue(user);
+    return cleanSelectValue(assignments?.[name]);
+  }
+
+  function substituteTeacherForUser(date, user) {
+    const iso = normalizeDateInput(date);
+    const name = cleanSelectValue(user);
+    return cleanSelectValue(iso ? state.userSubstitutes?.[iso]?.[name] : "");
+  }
+
+  function effectiveTeacherForUser(user, date = "") {
+    return substituteTeacherForUser(date, user) || assignedTeacherForUser(user);
+  }
+
+  function renderUserNameBadge(user, date = "", suffix = "") {
+    const name = cleanSelectValue(user);
+    const teacher = effectiveTeacherForUser(name, date);
+    const style = teacher ? ` style="--user-teacher-color: ${h(teacherColor(teacher))}"` : "";
+    const title = teacher ? ` title="${h(teacher)}"` : "";
+    return `<span class="user-name-badge ${teacher ? "has-teacher" : ""}"${style}${title}>${h(name)}${h(suffix)}</span>`;
+  }
+
+  function renderUserNameList(users, date = "") {
+    return normalizeUserList(users).map((user) => renderUserNameBadge(user, date)).join(" ");
+  }
+
   function teacherBadge(name, fallback = "담당자 미정") {
     const teacher = cleanSelectValue(name);
     if (!teacher) return h(fallback);
@@ -5191,6 +5553,7 @@
       const input = field.querySelector("input");
       if (input) input.required = isClub;
     });
+
   }
 
   function programDraftFromForm(form) {
@@ -5390,6 +5753,14 @@
       return;
     }
 
+    const vacationPanelButton = event.target.closest("[data-vacation-panel]");
+    if (vacationPanelButton) {
+      vacationPanel = vacationPanelButton.dataset.vacationPanel || "schedule";
+      localStorage.setItem(VACATION_PANEL_KEY, vacationPanel);
+      renderVacation();
+      return;
+    }
+
     const closedToggle = event.target.closest("[data-toggle-closed-date]");
     if (closedToggle) {
       toggleClosedDate(closedToggle.dataset.toggleClosedDate);
@@ -5578,6 +5949,16 @@
       return;
     }
 
+    if (event.target.closest("[data-edit-assignments]")) {
+      editAssignments();
+      return;
+    }
+
+    if (event.target.closest("[data-save-assignments]")) {
+      saveAssignments();
+      return;
+    }
+
     const deleteUserButton = event.target.closest("[data-delete-user]");
     if (deleteUserButton) {
       const ok = window.confirm("이 이용인을 삭제할까요? 시간표와 기록의 해당 이름도 함께 정리됩니다.");
@@ -5707,6 +6088,21 @@
     if (target.matches("[data-observation-user-filter]")) {
       observationUserFilter = target.value || "";
       renderObservations();
+      return;
+    }
+
+    if (target.matches("[data-assignment-teacher-select]")) {
+      updateAssignmentTeacher(target);
+      return;
+    }
+
+    if (target.matches("[data-user-assignment]")) {
+      updateUserAssignment(target);
+      return;
+    }
+
+    if (target.matches("[data-user-substitute-teacher]")) {
+      updateUserSubstitute(target);
       return;
     }
 

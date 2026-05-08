@@ -2649,6 +2649,10 @@ body.printing-monthly .closed-cancel {
   grid-column: 1 / -1;
 }
 
+.people-card .person-row select {
+  grid-column: 1 / -1;
+}
+
 .people-card .person-row .ghost-button,
 .people-card .person-row .danger-button {
   width: 100%;
@@ -2737,6 +2741,110 @@ body.printing-monthly .closed-cancel {
   min-width: 0;
 }
 
+.assignment-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.teacher-assignment-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.75fr) repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.assignment-teacher-field,
+.assignment-user-column {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+  background: var(--panel-soft);
+}
+
+.assignment-teacher-field {
+  display: grid;
+  gap: 8px;
+}
+
+.assignment-teacher-field span,
+.assignment-user-column h4 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.assignment-teacher-field select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.assignment-user-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 7px;
+}
+
+.assignment-check-row {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 8px;
+  background: #fff;
+}
+
+.assignment-check-row.assigned-other {
+  background: #f8fafc;
+}
+
+.assignment-check-row small {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.assignment-summary-row {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+}
+
+.user-name-badge {
+  font-weight: 800;
+}
+
+.user-name-badge.has-teacher {
+  color: var(--user-teacher-color, var(--ink));
+}
+
+.user-check-item {
+  display: grid;
+  gap: 4px;
+}
+
+.user-substitute-select {
+  width: 100%;
+  min-height: 32px;
+  border: 1px solid #f0c2c2;
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: #fff7f5;
+  color: #923c36;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .field.club-topic-field {
   display: none;
 }
@@ -2773,6 +2881,30 @@ body.printing-monthly .closed-cancel {
   padding: 8px 12px;
   background: #fff;
   color: var(--ink);
+}
+
+.observation-summary {
+  white-space: pre-wrap;
+}
+
+.red-highlight {
+  border-radius: 4px;
+  padding: 0 3px;
+  background: #ffe3e3;
+  color: #c92a2a;
+  font-weight: 900;
+}
+
+.vacation-panel-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vacation-panel-tabs .ghost-button.active {
+  border-color: var(--green);
+  background: var(--green-soft);
+  color: #18664d;
 }
 
 .observation-print-area {
@@ -3003,7 +3135,8 @@ body.printing-monthly .closed-cancel {
   }
 
   .teacher-report-grid,
-  .stats-summary-grid {
+  .stats-summary-grid,
+  .teacher-assignment-grid {
     grid-template-columns: 1fr;
   }
 
@@ -3094,6 +3227,7 @@ body.printing-monthly .closed-cancel {
   }
 
   .people-card .person-row input,
+  .people-card .person-row select,
   .people-card .person-row .ghost-button,
   .people-card .person-row .danger-button {
     grid-column: 1;
