@@ -1482,16 +1482,16 @@ body.printing-monthly .closed-cancel {
 
 .schedule-editor-table .service-band th,
 .print-timetable .service-band th {
-  padding: 11px 10px;
+  padding: 6px 8px;
   background: #fff3bf;
   color: var(--navy);
-  font-size: 1rem;
+  font-size: 0.95rem;
   text-align: center;
 }
 
 .service-band-content {
   position: relative;
-  min-height: 124px;
+  min-height: 56px;
 }
 
 .service-band-title {
@@ -1504,7 +1504,7 @@ body.printing-monthly .closed-cancel {
   left: 50%;
   z-index: 1;
   width: max-content;
-  max-width: 42%;
+  max-width: 44%;
   transform: translate(-50%, -50%);
   text-align: center;
   white-space: normal;
@@ -1513,16 +1513,21 @@ body.printing-monthly .closed-cancel {
 .service-band-summary {
   position: absolute;
   top: 50%;
-  right: 6px;
+  left: 10px;
   z-index: 2;
-  width: 250px;
-  max-width: 32%;
+  width: 300px;
+  max-width: 35%;
   transform: translateY(-50%);
   display: grid;
-  grid-auto-rows: 36px;
-  gap: 6px;
-  font-size: 0.78rem;
+  grid-auto-rows: 26px;
+  gap: 4px;
+  font-size: 0.74rem;
   line-height: 1.2;
+}
+
+.service-band-summary.service-band-right {
+  right: 10px;
+  left: auto;
 }
 
 .service-band-summary-item {
@@ -1531,9 +1536,9 @@ body.printing-monthly .closed-cancel {
   justify-content: center;
   gap: 6px;
   width: 100%;
-  height: 36px;
-  min-height: 36px;
-  padding: 0 7px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0 6px;
   border: 1px solid rgba(23, 64, 100, 0.16);
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.56);
@@ -1550,7 +1555,7 @@ body.printing-monthly .closed-cancel {
 
 .service-band-summary-item b {
   flex: 0 0 auto;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: #49657f;
   text-align: center;
 }
@@ -1585,10 +1590,10 @@ body.printing-monthly .closed-cancel {
 
 .service-band-picker-button {
   width: 88px;
-  min-height: 26px;
+  min-height: 22px;
   border: 1px solid rgba(23, 64, 100, 0.2);
   border-radius: 5px;
-  padding: 0 8px;
+  padding: 0 6px;
   background: #fff;
   color: var(--navy);
   display: inline-flex;
@@ -1616,6 +1621,79 @@ body.printing-monthly .closed-cancel {
   border-radius: 5px;
   background: #fff;
   box-shadow: 0 14px 32px rgba(15, 35, 55, 0.18);
+}
+
+.service-band-wide-button {
+  width: 100%;
+  min-height: 26px;
+  border: 1px solid rgba(23, 64, 100, 0.16);
+  border-radius: 5px;
+  padding: 0 7px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font: inherit;
+  font-weight: 800;
+}
+
+.service-band-commute-picker {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 22;
+  width: min(360px, 70vw);
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(23, 64, 100, 0.18);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 14px 32px rgba(15, 35, 55, 0.18);
+}
+
+.commute-add-row {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) 54px;
+  gap: 6px;
+}
+
+.commute-add-row select {
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.commute-user-picker {
+  position: static;
+  width: 100%;
+  max-width: none;
+  box-shadow: none;
+}
+
+.commute-entry-list {
+  display: grid;
+  gap: 5px;
+}
+
+.commute-entry {
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 5px 4px 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 6px;
+  align-items: center;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.8rem;
 }
 
 .service-band-user-picker .check-row {
@@ -1663,7 +1741,7 @@ body.printing-monthly .closed-cancel {
 
 .schedule-editor-table th:nth-child(4),
 .print-timetable th:nth-child(4) {
-  width: 14%;
+  width: 16%;
 }
 
 .schedule-editor-table th:nth-child(5),
@@ -1672,12 +1750,14 @@ body.printing-monthly .closed-cancel {
 }
 
 .schedule-editor-table th:nth-child(6),
-.schedule-editor-table th:nth-child(7),
-.schedule-editor-table th:nth-child(8),
 .print-timetable th:nth-child(6),
-.print-timetable th:nth-child(7),
-.print-timetable th:nth-child(8) {
-  width: 13%;
+.print-timetable th:nth-child(6) {
+  width: 12%;
+}
+
+.schedule-editor-table th:nth-child(7),
+.print-timetable th:nth-child(7) {
+  width: 25%;
 }
 
 .schedule-editor-table tbody td,
@@ -1822,6 +1902,37 @@ body.printing-monthly .closed-cancel {
 
 .teacher-checkbox-picker {
   max-height: 112px;
+}
+
+.teacher-check-item {
+  min-height: 26px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 4px;
+  align-items: center;
+}
+
+.paper-check-row {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid #d2def0;
+  border-radius: 5px;
+  background: #fff;
+  color: var(--navy);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.paper-check-row.disabled {
+  opacity: 0.45;
+}
+
+.paper-check-row input {
+  width: 13px;
+  height: 13px;
 }
 
 .support-checkbox-picker {
@@ -2035,7 +2146,8 @@ body.printing-monthly .closed-cancel {
 }
 
 .aftercare-info input,
-.aftercare-info textarea {
+.aftercare-info textarea,
+.remark-editor textarea {
   width: 100%;
   min-height: 32px;
   border: 1px solid var(--line);
@@ -2537,6 +2649,73 @@ body.printing-monthly .closed-cancel {
   gap: 12px;
 }
 
+.remark-editor {
+  display: grid;
+  gap: 6px;
+}
+
+.remark-teacher-note-editor {
+  display: grid;
+  gap: 5px;
+}
+
+.remark-note-add-row {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) 42px;
+  gap: 5px;
+  align-items: center;
+}
+
+.remark-note-add-row select,
+.remark-note-add-row input {
+  width: 100%;
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.remark-note-add-row .mini-button {
+  min-height: 30px;
+  padding: 3px 6px;
+}
+
+.remark-note-list {
+  display: grid;
+  gap: 4px;
+}
+
+.remark-note-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 5px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 5px 4px 7px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.remark-auto-list,
+.remark-print-cell {
+  display: grid;
+  gap: 4px;
+  color: var(--navy);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.remark-auto-list span,
+.remark-print-cell span {
+  padding-left: 0;
+}
+
 .grouped-people-management-grid {
   align-items: stretch;
 }
@@ -3036,6 +3215,12 @@ body.printing-monthly .closed-cancel {
   color: #c92a2a;
   font-weight: 900;
   cursor: pointer;
+}
+
+.observation-highlight-menu button.danger-highlight-action {
+  background: #fff;
+  color: #a12a2a;
+  border: 1px solid #ffc9c9;
 }
 
 .red-highlight {

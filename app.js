@@ -12,11 +12,9 @@
   const CLUB_TOPIC_COUNT = 3;
   const SPECIAL_EVENT_LEAVE_DAYS = 5;
   const KOREAN_DAYS = ["일", "월", "화", "수", "목", "금", "토"];
-  const SUPPORT_FIELDS = ["rest", "docs", "desk"];
+  const SUPPORT_FIELDS = ["rest"];
   const SUPPORT_LABELS = {
-    rest: "휴게",
-    docs: "서류",
-    desk: "데스크"
+    rest: "휴게"
   };
   const ROOM_OPTIONS = ["우리실", "송정실", "사무실", "301호 체육실", "302호 체육실", "요리실"];
   const CANONICAL_TIME_SLOTS = [
@@ -87,7 +85,11 @@
     { key: "afterOut", label: "방과후 하원", className: "after-route" }
   ];
   const MOVE_TYPE_LABELS = MOVE_TYPES.map((item) => item.label);
-  const AFTERCARE_INFO_TYPES = ["결석", "등원", "하원"];
+  const INFO_ABSENT = "결석";
+  const INFO_ARRIVAL = "등원";
+  const INFO_DEPARTURE = "하원";
+  const COMMUTE_INFO_TYPES = [INFO_ARRIVAL, INFO_DEPARTURE];
+  const AFTERCARE_INFO_TYPES = [INFO_ABSENT, INFO_ARRIVAL, INFO_DEPARTURE];
   const TEACHER_COLOR_PALETTE = ["#1f78ff", "#ef3b2d", "#2f9e44", "#ae3ec9", "#f08c00", "#0ca678", "#15aabf", "#e64980"];
   const KOREA_HOLIDAYS_2026 = {
     "2026-01-01": "신정",
@@ -169,6 +171,8 @@
   let observationFormDate = todayIso;
   let supportNoteEditor = null;
   let dayAbsentPickerOpen = false;
+  let aftercareAbsentPickerOpen = false;
+  let commutePickerOpen = "";
   let programDragId = "";
   let transportDragDate = "";
   let transportCopyFilter = "all";
@@ -366,12 +370,13 @@
     return {
       groups: [...first.groups, ...second.groups].filter(scheduleGroupHasContent),
       rest: [...supportTeacherList(first, "rest"), ...supportTeacherList(second, "rest")].filter(unique),
-      docs: [...supportTeacherList(first, "docs"), ...supportTeacherList(second, "docs")].filter(unique),
-      desk: [...supportTeacherList(first, "desk"), ...supportTeacherList(second, "desk")].filter(unique),
+      memo: first.memo || second.memo,
+      teacherNotes: [...first.teacherNotes, ...second.teacherNotes],
       supportNotes: {
         ...second.supportNotes,
         ...first.supportNotes
       },
+      dayInfo: mergeAfterInfo(first.dayInfo, second.dayInfo),
       afterInfo: mergeAfterInfo(first.afterInfo, second.afterInfo)
     };
   }
@@ -1536,6 +1541,7 @@
     ensureDailySchedule(dailyDate);
     const seeded = seedDailyScheduleFromMonthlyPrograms(dailyDate, { onlyIfEmpty: true });
     if (seeded) saveState("월간 프로그램이 일일 시간표에 반영되었습니다.");
+    removeDayAbsentUsers(dailyDate);
     removeAftercareAbsentUsers(dailyDate);
     const programOptions = programOptionsForDate(dailyDate);
 
@@ -1595,15 +1601,12 @@
       }
 
       if (isAftercareSlot(slot) && !aftercareBandAdded) {
-        rows.push(renderScheduleServiceBand("방과후 활동 서비스", aftercareScheduleRangeLabel(), "aftercare-band"));
+        rows.push(renderScheduleServiceBand("방과후 활동 서비스", aftercareScheduleRangeLabel(), "aftercare-band", renderAftercareServiceBandSummary(date, { interactive: true, showEmpty: true })));
         aftercareBandAdded = true;
       }
 
       rows.push(
-        renderScheduleSlotRows(date, slot, programOptions, {
-          showAftercareInfo: isAftercareInfoSlot(slot) && slot === firstAftercareSlot(),
-          aftercareRowSpan: aftercareEditorRowSpan(date)
-        })
+        renderScheduleSlotRows(date, slot, programOptions)
       );
     });
 
@@ -1623,8 +1626,7 @@
             <th>담당 교사</th>
             <th>이용인</th>
             <th>휴게</th>
-            <th>서류</th>
-            <th>데스크</th>
+            <th>비고</th>
           </tr>
         </thead>
         <tbody>
@@ -1639,7 +1641,7 @@
     const content = summary ? `<div class="service-band-content">${title}${summary}</div>` : title;
     return `
       <tr class="service-band ${h(className)}">
-        <th colspan="8">${content}</th>
+        <th colspan="7">${content}</th>
       </tr>
     `;
   }
@@ -1647,34 +1649,63 @@
   function renderDayServiceBandSummary(date, options = {}) {
     const interactive = Boolean(options.interactive);
     const showEmpty = options.showEmpty !== false;
-    const inboundTeachers = movesForDate(date)
-      .filter((entry) => normalizeMoveType(entry).includes("등원"))
-      .map((entry) => cleanSelectValue(entry.person))
-      .filter(Boolean)
-      .filter(unique);
-    const vacationTeachers = Array.from(vacationTeachersForDate(date));
-    const absentUsers = Array.from(absentAftercareUsers(date)).map(cleanSelectValue).filter(Boolean).filter(unique);
-    const summaryItems = [
-      { label: "등원 송영 담당", value: teacherBadgeList(inboundTeachers, "없음"), hasValue: inboundTeachers.length > 0 },
-      { label: "휴가 교사", value: teacherBadgeList(vacationTeachers, "없음"), hasValue: vacationTeachers.length > 0 },
-      {
-        label: "주간 결석 이용인",
-        value: interactive ? renderDayAbsentUserPicker(absentUsers) : absentUsers.map(h).join(", ") || "없음",
-        hasValue: absentUsers.length > 0,
-        className: interactive ? "has-picker" : ""
-      }
-    ].filter((item) => showEmpty || item.hasValue);
+    return renderServiceBandInfoControls("day", date, "주간", DAY_USER_GROUP_KEYS, getDayInfo(date), {
+      interactive,
+      showEmpty,
+      absenceLabel: "주간 결석 이용인",
+      commuteLabel: "주간 이용인 개별 등하원 시간"
+    });
+  }
 
-    if (!summaryItems.length) return "";
+  function renderAftercareServiceBandSummary(date, options = {}) {
+    const interactive = Boolean(options.interactive);
+    const showEmpty = options.showEmpty !== false;
+    return renderServiceBandInfoControls("aftercare", date, "방과후", AFTERCARE_USER_GROUP_KEYS, getAftercareInfo(date), {
+      interactive,
+      showEmpty,
+      absenceLabel: "방과후 결석 이용인",
+      commuteLabel: "방과후 이용인 개별 등하원 시간"
+    });
+  }
+
+  function renderServiceBandInfoControls(scope, date, label, userGroupKeys, info, options = {}) {
+    const value = normalizeAfterInfo(info);
+    const absentUsers = value.items.filter((item) => item.type === INFO_ABSENT).map((item) => item.user).filter(Boolean).filter(unique);
+    const commuteItems = value.items.filter((item) => item.type !== INFO_ABSENT);
+    const showEmpty = options.showEmpty !== false;
+    const rightSummary = renderServiceBandRightSummary(scope, date, commuteItems, showEmpty);
+    if (!options.interactive && !showEmpty && !absentUsers.length && !commuteItems.length && !rightSummary) return "";
 
     return `
-      <div class="service-band-summary" aria-label="주간 활동 요약">
-        ${summaryItems
+      <div class="service-band-summary service-band-left" aria-label="${h(label)} 활동 요약">
+        <span class="service-band-summary-item has-picker">
+          <b>${h(options.absenceLabel || `${label} 결석 이용인`)}</b>
+          <span class="service-band-summary-value">${options.interactive ? renderAbsentUserPicker(scope, absentUsers, userGroupKeys) : absentUsers.map(h).join(", ") || "없음"}</span>
+        </span>
+        ${
+          options.interactive
+            ? renderCommuteInfoPicker(scope, date, options.commuteLabel || `${label} 이용인 개별 등하원 시간`, userGroupKeys, value)
+            : commuteItems.length
+              ? `<span class="service-band-summary-item">${commuteSummaryText(commuteItems)}</span>`
+              : ""
+        }
+      </div>
+      ${rightSummary}
+    `;
+  }
+
+  function renderServiceBandRightSummary(scope, date, commuteItems = [], showEmpty = true) {
+    const items = serviceBandRightItems(scope, date, commuteItems, showEmpty);
+    if (!items.length) return "";
+
+    return `
+      <div class="service-band-summary service-band-right" aria-label="휴가 및 등하원 정보">
+        ${items
           .map(
             (item) => `
-              <span class="service-band-summary-item ${h(item.className || "")}">
+              <span class="service-band-summary-item">
                 <b>${h(item.label)}</b>
-                <span class="service-band-summary-value">${item.value}</span>
+                <span class="service-band-summary-value">${h(item.value)}</span>
               </span>
             `
           )
@@ -1683,29 +1714,60 @@
     `;
   }
 
-  function renderDayAbsentUserPicker(absentUsers = []) {
+  function serviceBandRightItems(scope, date, commuteItems = [], showEmpty = true) {
+    const vacation = vacationSummaryText(date);
+    const commute = bandCommuteSummaryText(scope, date, commuteItems);
+    return [
+      showEmpty || vacation ? { label: "휴가", value: vacation || "없음" } : null,
+      showEmpty || commute ? { label: "등하원 정보", value: commute || "없음" } : null
+    ].filter(Boolean);
+  }
+
+  function vacationSummaryText(date) {
+    return movesForDate(date)
+      .filter((entry) => {
+        const type = MOVE_TYPES.find((item) => item.label === normalizeMoveType(entry));
+        return type && !type.className.includes("route");
+      })
+      .map(shortMoveLabel)
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  function bandCommuteSummaryText(scope, date, commuteItems = []) {
+    const routePrefix = scope === "aftercare" ? "방과후" : "주간";
+    const transport = movesForDate(date)
+      .filter((entry) => normalizeMoveType(entry).startsWith(routePrefix))
+      .map(shortMoveLabel)
+      .filter(Boolean);
+    const commute = commuteSummaryText(commuteItems);
+    return [commute, transport.join(", ")].filter(Boolean).join(" / ");
+  }
+
+  function renderAbsentUserPicker(scope, absentUsers = [], userGroupKeys = DAY_USER_GROUP_KEYS) {
     const selected = new Set(absentUsers);
-    const users = DAY_USER_GROUP_KEYS.flatMap((key) => state.settings.userGroups?.[key] || []).filter(unique);
+    const users = userGroupKeys.flatMap((key) => state.settings.userGroups?.[key] || []).filter(unique);
+    const open = scope === "aftercare" ? aftercareAbsentPickerOpen : dayAbsentPickerOpen;
 
     if (!users.length) return `<span class="muted">등록된 이용인 없음</span>`;
 
     const selectedLabel = absentUsers.length ? `${absentUsers.length}명 선택` : "선택";
 
     return `
-      <span class="service-band-user-select ${dayAbsentPickerOpen ? "open" : ""}" data-day-absent-picker aria-label="주간 결석 이용인 선택">
-        <button class="service-band-picker-button" data-toggle-day-absent-picker type="button" aria-expanded="${dayAbsentPickerOpen ? "true" : "false"}">
+      <span class="service-band-user-select ${open ? "open" : ""}" data-absent-picker="${h(scope)}" aria-label="결석 이용인 선택">
+        <button class="service-band-picker-button" data-toggle-absent-picker="${h(scope)}" type="button" aria-expanded="${open ? "true" : "false"}">
           <span>${h(selectedLabel)}</span>
           <span aria-hidden="true">▾</span>
         </button>
         ${
-          dayAbsentPickerOpen
+          open
             ? `
               <span class="service-band-user-picker" role="group" aria-label="주간 결석 이용인 목록">
                 ${users
                   .map(
                     (user) => `
                       <label class="check-row">
-                        <input data-day-absent-user type="checkbox" value="${h(user)}" ${selected.has(user) ? "checked" : ""} />
+                        <input data-absent-user="${h(scope)}" type="checkbox" value="${h(user)}" ${selected.has(user) ? "checked" : ""} />
                         ${renderUserNameBadge(user, dailyDate)}
                       </label>
                     `
@@ -1775,17 +1837,16 @@
             </td>
             ${
               index === 0
-                ? aftercare
-                  ? options.showAftercareInfo
-                    ? `<td class="aftercare-info-cell" rowspan="${options.aftercareRowSpan || rowSpan}" colspan="3">${renderAftercareInfo(date)}</td>`
-                    : ""
-                  : SUPPORT_FIELDS.map(
-                      (field) => `
-                        <td rowspan="${rowSpan}">
-                          ${renderSupportSelect(slot, slotRecord, field)}
-                        </td>
-                      `
-                    ).join("")
+                ? `${SUPPORT_FIELDS.map(
+                    (field) => `
+                  <td rowspan="${rowSpan}">
+                        ${aftercare ? "" : renderSupportSelect(slot, slotRecord, field)}
+                      </td>
+                    `
+                  ).join("")}
+                  <td rowspan="${rowSpan}">
+                    ${renderRemarkEditor(date, slot, slotRecord)}
+                  </td>`
                 : ""
             }
           </tr>
@@ -1825,13 +1886,16 @@
             <td>${renderUserPicker(date, slot, groups, group)}</td>
             ${
               index === 0
-                ? SUPPORT_FIELDS.map(
+                ? `${SUPPORT_FIELDS.map(
                     (field) => `
                       <td rowspan="${rowSpan}">
                         ${renderSupportSelect(slot, slotRecord, field)}
                       </td>
                     `
-                  ).join("")
+                  ).join("")}
+                  <td rowspan="${rowSpan}">
+                    ${renderRemarkEditor(date, slot, slotRecord)}
+                  </td>`
                 : ""
             }
           </tr>
@@ -1842,7 +1906,7 @@
 
   function renderDismissalEditorRow(date, slot, group, options = {}) {
     const targetGroup = group || blankScheduleGroup();
-    const userColspan = options.hasAftercareInfoSpan ? 1 : 4;
+    const userColspan = 3;
 
     return `
       <tr class="schedule-group-row aftercare-row dismissal-row">
@@ -1892,6 +1956,67 @@
     }
 
     return spans;
+  }
+
+  function renderRemarkEditor(date, slot, slotRecord) {
+    const autoRemarks = commuteRemarksForSlot(date, slot);
+    const teacherNotes = normalizeScheduleTeacherNotes(slotRecord.teacherNotes);
+    const teachers = (state.settings.teachers || []).filter(unique);
+    return `
+      <div class="remark-editor">
+        ${autoRemarks.length ? `<div class="remark-auto-list">${autoRemarks.map((remark) => `<span>${remark}</span>`).join("")}</div>` : ""}
+        <textarea class="memo-input" data-schedule-slot-memo data-slot="${h(slot)}" rows="3" placeholder="비고">${h(slotRecord.memo || "")}</textarea>
+        <div class="remark-teacher-note-editor" data-remark-note-editor data-slot="${h(slot)}">
+          ${
+            teachers.length
+              ? `
+                <div class="remark-note-add-row">
+                  <select data-remark-note-teacher aria-label="교사 선택">
+                    <option value="">교사 선택</option>
+                    ${teachers.map((teacher) => `<option value="${h(teacher)}">${h(teacher)}</option>`).join("")}
+                  </select>
+                  <input data-remark-note-text type="text" placeholder="업무 / 전달사항" aria-label="업무 또는 전달사항" />
+                  <button class="mini-button" data-add-remark-note type="button">추가</button>
+                </div>
+              `
+              : `<div class="empty compact">등록된 교사가 없습니다.</div>`
+          }
+          ${
+            teacherNotes.length
+              ? `<div class="remark-note-list">
+                  ${teacherNotes
+                    .map(
+                      (note) => `
+                        <span class="remark-note-entry">
+                          <span>${teacherBadge(note.teacher, note.teacher)} ${h(note.text)}</span>
+                          <button class="mini-button danger-mini" data-remove-remark-note="${h(note.id)}" data-slot="${h(slot)}" type="button">삭제</button>
+                        </span>
+                      `
+                    )
+                    .join("")}
+                </div>`
+              : ""
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  function commuteRemarksForSlot(date, slot) {
+    const source = isAftercareSlot(slot) ? getAftercareInfo(date) : getDayInfo(date);
+    return groupAftercareItems(
+      source.items.filter((item) => item.type !== INFO_ABSENT && commuteItemBelongsToSlot(item, slot))
+    ).map((group) => `<b>${h(group.label.replace(/:$/, ""))}</b> ${renderUserNameList(group.users, date)}`);
+  }
+
+  function commuteItemBelongsToSlot(item, slot) {
+    if (!/\d{1,2}:\d{2}/.test(item.time || "")) return false;
+    const time = timeToMinutes(item.time);
+    if (!Number.isFinite(time)) return false;
+    const [startText, endText] = splitSlotTime(slot);
+    const start = timeToMinutes(startText);
+    const end = endText ? timeToMinutes(endText) : start + 60;
+    return time >= start && time < end;
   }
 
   function renderAftercareInfo(date) {
@@ -1951,8 +2076,8 @@
   function groupAftercareItems(items = []) {
     const groups = new Map();
     normalizeAfterInfo({ items }).items.forEach((item) => {
-      const key = item.type === "결석" ? item.type : `${item.type}||${item.time}`;
-      const label = item.type === "결석" ? "결석:" : `${item.type}${item.time ? ` ${item.time}` : ""}:`;
+      const key = item.type === INFO_ABSENT ? item.type : `${item.type}||${item.time}`;
+      const label = item.type === INFO_ABSENT ? "결석:" : `${item.type}${item.time ? ` ${item.time}` : ""}:`;
       if (!groups.has(key)) {
         groups.set(key, {
           key,
@@ -2023,7 +2148,7 @@
     const selected = new Set(normalizeUserList(group.users));
     const usedByOtherGroups = new Set(groups.filter((item) => item.id !== group.id).flatMap((item) => normalizeUserList(item.users)));
     const allowedGroups = allowedUserGroupsForSlot(slot);
-    const absentUsers = absentAftercareUsers(date);
+    const absentUsers = isAftercareSlot(slot) ? absentAftercareUsers(date) : absentDayUsers(date);
     const vacationTeachers = vacationTeachersForDate(date);
 
     return `
@@ -2101,6 +2226,7 @@
 
   function renderTeacherMultiSelect(slot, group, blocked) {
     const selectedSet = new Set(groupTeacherList(group));
+    const paperSet = new Set(normalizeTeacherList(group.paperTeachers).filter((teacher) => selectedSet.has(teacher)));
 
     return `
       <div class="teacher-checkbox-picker" data-schedule-teachers data-slot="${h(slot)}" data-group-id="${h(group.id)}" aria-label="${h(slot)} 담당 교사">
@@ -2109,10 +2235,16 @@
           .map((teacher) => {
             const disabled = teacher && !selectedSet.has(teacher) && blocked.has(teacher);
             return `
-              <label class="check-row ${disabled ? "disabled" : ""}">
-                <input data-schedule-teacher type="checkbox" value="${h(teacher)}" ${selectedSet.has(teacher) ? "checked" : ""} ${disabled ? "disabled" : ""} />
-                <span>${h(teacher)}</span>
-              </label>
+              <div class="teacher-check-item ${disabled ? "disabled" : ""}">
+                <label class="check-row ${disabled ? "disabled" : ""}">
+                  <input data-schedule-teacher type="checkbox" value="${h(teacher)}" ${selectedSet.has(teacher) ? "checked" : ""} ${disabled ? "disabled" : ""} />
+                  <span>${paperSet.has(teacher) ? "*" : ""}${h(teacher)}</span>
+                </label>
+                <label class="paper-check-row ${!selectedSet.has(teacher) ? "disabled" : ""}" title="서류 업무 가능">
+                  <input data-schedule-paper-teacher type="checkbox" value="${h(teacher)}" ${paperSet.has(teacher) ? "checked" : ""} ${!selectedSet.has(teacher) ? "disabled" : ""} />
+                  <span>*</span>
+                </label>
+              </div>
             `;
           })
           .join("")}
@@ -3167,16 +3299,11 @@
       }
 
       if (isAftercareSlot(slot) && !aftercareBandAdded) {
-        rows.push(renderScheduleServiceBand("방과후 활동 서비스", aftercareScheduleRangeLabel(), "aftercare-band"));
+        rows.push(renderScheduleServiceBand("방과후 활동 서비스", aftercareScheduleRangeLabel(), "aftercare-band", renderAftercareServiceBandSummary(date, { showEmpty: false })));
         aftercareBandAdded = true;
       }
 
-      rows.push(
-        renderSchedulePrintRows(date, slot, {
-          showAftercareInfo: isAftercareInfoSlot(slot) && slot === firstAftercareSlot(),
-          aftercareRowSpan: aftercareEditorRowSpan(date)
-        })
-      );
+      rows.push(renderSchedulePrintRows(date, slot));
     });
 
     return `
@@ -3198,8 +3325,7 @@
               <th>담당 교사</th>
               <th>이용인</th>
               <th>휴게</th>
-              <th>서류</th>
-              <th>데스크</th>
+              <th>비고</th>
             </tr>
           </thead>
           <tbody>
@@ -3235,15 +3361,12 @@
             ${index === 0 ? `<th class="time-label" rowspan="${rowSpan}">${formatSlotLabel(slot)}</th>` : ""}
             ${programSpans[index] > 0 ? `<td rowspan="${programSpans[index]}">${h(group.program || "")}</td>` : ""}
             ${programSpans[index] > 0 ? `<td rowspan="${programSpans[index]}">${h(group.room || "")}</td>` : ""}
-            <td>${teacherBadgeList(groupTeacherList(group), "")}</td>
+            <td>${teacherBadgeListForGroup(group, "")}</td>
             <td>${renderUserNameList(normalizeUserList(group.users), date)}</td>
             ${
               index === 0
-                ? aftercare
-                  ? options.showAftercareInfo
-                    ? `<td class="aftercare-print-cell" colspan="3" rowspan="${options.aftercareRowSpan || rowSpan}">${renderAftercarePrint(getAftercareInfo(date), date)}</td>`
-                    : ""
-                  : SUPPORT_FIELDS.map((field) => `<td rowspan="${rowSpan}">${renderSupportPrintCell(slotRecord, field)}</td>`).join("")
+                ? `${SUPPORT_FIELDS.map((field) => `<td rowspan="${rowSpan}">${renderSupportPrintCell(slotRecord, field)}</td>`).join("")}
+                  <td rowspan="${rowSpan}">${renderRemarkPrintCell(date, slot, slotRecord)}</td>`
                 : ""
             }
           </tr>
@@ -3263,11 +3386,12 @@
             ${index === 0 ? `<th class="time-label" rowspan="${rowSpan}">${formatSlotLabel(slot)}</th>` : ""}
             <td>${h(dayDismissalProgram(group))}</td>
             <td>${h(group.room || "")}</td>
-            <td>${teacherBadgeList(groupTeacherList(group), "")}</td>
+            <td>${teacherBadgeListForGroup(group, "")}</td>
             <td>${renderUserNameList(normalizeUserList(group.users), date)}</td>
             ${
               index === 0
-                ? SUPPORT_FIELDS.map((field) => `<td rowspan="${rowSpan}">${renderSupportPrintCell(slotRecord, field)}</td>`).join("")
+                ? `${SUPPORT_FIELDS.map((field) => `<td rowspan="${rowSpan}">${renderSupportPrintCell(slotRecord, field)}</td>`).join("")}
+                  <td rowspan="${rowSpan}">${renderRemarkPrintCell(date, slot, slotRecord)}</td>`
                 : ""
             }
           </tr>
@@ -3297,15 +3421,25 @@
     `;
   }
 
+  function renderRemarkPrintCell(date, slot, slotRecord) {
+    const remarks = commuteRemarksForSlot(date, slot);
+    if (slotRecord.memo) remarks.push(h(slotRecord.memo));
+    normalizeScheduleTeacherNotes(slotRecord.teacherNotes).forEach((note) => {
+      remarks.push(`${teacherBadge(note.teacher, note.teacher)} ${h(note.text)}`);
+    });
+    if (!remarks.length) return "";
+    return `<div class="remark-print-cell">${remarks.map((remark) => `<span>${remark}</span>`).join("")}</div>`;
+  }
+
   function renderDismissalPrintRow(date, slot, group, options = {}) {
     const targetGroup = group || blankScheduleGroup();
-    const userColspan = options.hasAftercareInfoSpan ? 1 : 4;
+    const userColspan = 3;
 
     return `
       <tr class="aftercare-row dismissal-row">
         <th class="time-label">${formatSlotLabel(slot)}</th>
         <td class="dismissal-label" colspan="2">하원 송영</td>
-        <td>${teacherBadgeList(groupTeacherList(targetGroup), "")}</td>
+        <td>${teacherBadgeListForGroup(targetGroup, "")}</td>
         <td colspan="${userColspan}">${renderUserNameList(normalizeUserList(targetGroup.users), date)}</td>
       </tr>
     `;
@@ -4086,7 +4220,11 @@
       return;
     }
 
-    observationHighlightTerms = normalizeHighlightTerms([...observationHighlightTerms, selected]);
+    if (observationHighlightSelection?.action === "remove") {
+      observationHighlightTerms = normalizeHighlightTerms(observationHighlightTerms.filter((item) => item.toLowerCase() !== selected.toLowerCase()));
+    } else {
+      observationHighlightTerms = normalizeHighlightTerms([...observationHighlightTerms, selected]);
+    }
     refreshObservationEditorHighlights();
     hideObservationHighlightMenu();
     editor.focus();
@@ -4103,10 +4241,16 @@
       return;
     }
 
-    observationHighlightSelection = { text: selected };
+    const alreadyHighlighted = normalizeHighlightTerms(observationHighlightTerms).some((item) => item.toLowerCase() === selected.toLowerCase());
+    observationHighlightSelection = { text: selected, action: alreadyHighlighted ? "remove" : "add" };
     const menu = document.querySelector("[data-observation-highlight-menu]");
     const field = editor.closest(".observation-summary-field");
     if (!menu || !field) return;
+    const button = menu.querySelector("[data-apply-observation-highlight]");
+    if (button) {
+      button.textContent = alreadyHighlighted ? "하이라이트 삭제" : "하이라이트 표시";
+      button.classList.toggle("danger-highlight-action", alreadyHighlighted);
+    }
 
     const range = selection.rangeCount ? selection.getRangeAt(0) : null;
     const selectionRect = range?.getBoundingClientRect?.();
@@ -4272,6 +4416,14 @@
         slotRecord.groups.forEach((group) => {
           group.users = normalizeUserList(group.users).map((user) => (user === oldName ? newName : user));
         });
+        ["dayInfo", "afterInfo"].forEach((field) => {
+          if (!slotRecord[field]) return;
+          slotRecord[field] = normalizeAfterInfo(slotRecord[field]);
+          slotRecord[field].items = slotRecord[field].items.map((item) => ({
+            ...item,
+            user: item.user === oldName ? newName : item.user
+          }));
+        });
       });
     });
 
@@ -4298,6 +4450,11 @@
         if (!Array.isArray(slotRecord?.groups)) return;
         slotRecord.groups.forEach((group) => {
           group.users = normalizeUserList(group.users).filter((user) => user !== name);
+        });
+        ["dayInfo", "afterInfo"].forEach((field) => {
+          if (!slotRecord[field]) return;
+          slotRecord[field] = normalizeAfterInfo(slotRecord[field]);
+          slotRecord[field].items = slotRecord[field].items.filter((item) => item.user !== name);
         });
       });
     });
@@ -4355,10 +4512,12 @@
         });
         if (!Array.isArray(slotRecord.groups)) return;
         slotRecord.groups.forEach((group) => {
+          const paperTeachers = normalizeTeacherList(group.paperTeachers).map((teacher) => (teacher === oldName ? newName : teacher));
           setGroupTeachers(
             group,
             groupTeacherList(group).map((teacher) => (teacher === oldName ? newName : teacher))
           );
+          group.paperTeachers = paperTeachers.filter((teacher) => groupTeacherList(group).includes(teacher));
         });
       });
     });
@@ -4408,6 +4567,7 @@
             group,
             groupTeacherList(group).filter((teacher) => teacher !== name)
           );
+          group.paperTeachers = normalizeTeacherList(group.paperTeachers).filter((teacher) => teacher !== name);
         });
       });
     });
@@ -4504,9 +4664,12 @@
       const slotRecord = normalizeScheduleSlot(daySchedule[slot]);
       if (slotRecord.groups.some((group) => scheduleGroupHasContentForSeed(group, slot))) return true;
       if (SUPPORT_FIELDS.some((field) => supportTeacherList(slotRecord, field).length)) return true;
+      if (slotRecord.memo) return true;
+      if (normalizeScheduleTeacherNotes(slotRecord.teacherNotes).length) return true;
 
       const afterInfo = normalizeAfterInfo(slotRecord.afterInfo);
-      return Boolean(afterInfo.items.length || afterInfo.memo);
+      const dayInfo = normalizeAfterInfo(slotRecord.dayInfo);
+      return Boolean(afterInfo.items.length || afterInfo.memo || dayInfo.items.length || dayInfo.memo);
     });
   }
 
@@ -4892,8 +5055,28 @@
       group,
       Array.from(wrapper.querySelectorAll("[data-schedule-teacher]:checked")).map((input) => input.value)
     );
+    group.paperTeachers = Array.from(wrapper.querySelectorAll("[data-schedule-paper-teacher]:checked"))
+      .map((input) => input.value)
+      .filter((teacher) => groupTeacherList(group).includes(teacher));
     state.dailySchedules[dailyDate][wrapper.dataset.slot] = sanitizeScheduleSlot(getScheduleSlot(dailyDate, wrapper.dataset.slot), wrapper.dataset.slot);
     saveState("시간표가 저장되었습니다.");
+    renderDaily();
+  }
+
+  function updateSchedulePaperTeachers(target) {
+    const wrapper = target.closest("[data-schedule-teachers]");
+    if (!wrapper) return;
+
+    const group = findScheduleGroup(dailyDate, wrapper.dataset.slot, wrapper.dataset.groupId);
+    if (!group) return;
+
+    const teachers = groupTeacherList(group);
+    group.paperTeachers = Array.from(wrapper.querySelectorAll("[data-schedule-paper-teacher]:checked"))
+      .map((input) => input.value)
+      .filter((teacher) => teachers.includes(teacher))
+      .filter(unique);
+    state.dailySchedules[dailyDate][wrapper.dataset.slot] = sanitizeScheduleSlot(getScheduleSlot(dailyDate, wrapper.dataset.slot), wrapper.dataset.slot);
+    saveState("서류 담당 교사가 저장되었습니다.");
     renderDaily();
   }
 
@@ -4995,30 +5178,141 @@
     renderDaily();
   }
 
-  function updateDayAbsentUsers(target) {
-    const wrapper = target.closest("[data-day-absent-picker]");
+  function updateScheduleSlotMemo(target) {
+    const slot = target.dataset.slot;
+    if (!slot) return;
+    const slotRecord = getScheduleSlot(dailyDate, slot);
+    slotRecord.memo = target.value;
+    state.dailySchedules[dailyDate][slot] = sanitizeScheduleSlot(slotRecord, slot);
+    saveState("비고가 저장되었습니다.");
+  }
+
+  function addRemarkTeacherNote(button) {
+    const wrapper = button.closest("[data-remark-note-editor]");
+    const slot = wrapper?.dataset.slot;
+    if (!wrapper || !slot) return;
+
+    const teacher = cleanSelectValue(wrapper.querySelector("[data-remark-note-teacher]")?.value);
+    const text = cleanSelectValue(wrapper.querySelector("[data-remark-note-text]")?.value);
+    if (!teacher) {
+      setSyncStatus("교사를 선택해주세요.");
+      return;
+    }
+    if (!text) {
+      setSyncStatus("업무 또는 전달사항을 입력해주세요.");
+      return;
+    }
+
+    const slotRecord = getScheduleSlot(dailyDate, slot);
+    slotRecord.teacherNotes = normalizeScheduleTeacherNotes(slotRecord.teacherNotes);
+    slotRecord.teacherNotes.push({
+      id: uid("remark"),
+      teacher,
+      text
+    });
+    state.dailySchedules[dailyDate][slot] = sanitizeScheduleSlot(slotRecord, slot);
+    saveState("교사별 비고가 저장되었습니다.");
+    renderDaily();
+  }
+
+  function removeRemarkTeacherNote(button) {
+    const slot = button.dataset.slot;
+    const noteId = button.dataset.removeRemarkNote;
+    if (!slot || !noteId) return;
+
+    const slotRecord = getScheduleSlot(dailyDate, slot);
+    slotRecord.teacherNotes = normalizeScheduleTeacherNotes(slotRecord.teacherNotes).filter((note) => note.id !== noteId);
+    state.dailySchedules[dailyDate][slot] = sanitizeScheduleSlot(slotRecord, slot);
+    saveState("교사별 비고가 삭제되었습니다.");
+    renderDaily();
+  }
+
+  function scheduleInfoForScope(scope) {
+    return scope === "aftercare" ? getAftercareInfo(dailyDate) : getDayInfo(dailyDate);
+  }
+
+  function setScheduleInfoForScope(scope, info) {
+    if (scope === "aftercare") {
+      setAftercareInfo(dailyDate, info);
+    } else {
+      setDayInfo(dailyDate, info);
+    }
+  }
+
+  function updateAbsentUsers(target) {
+    const scope = target.dataset.absentUser || "day";
+    const wrapper = target.closest(`[data-absent-picker="${scope}"]`);
     if (!wrapper) return;
 
-    dayAbsentPickerOpen = true;
-    const selectedUsers = Array.from(wrapper.querySelectorAll("[data-day-absent-user]:checked"))
+    if (scope === "aftercare") aftercareAbsentPickerOpen = true;
+    else dayAbsentPickerOpen = true;
+    const selectedUsers = Array.from(wrapper.querySelectorAll(`[data-absent-user="${scope}"]:checked`))
       .map((input) => cleanSelectValue(input.value))
       .filter(Boolean)
       .filter(unique);
-    const info = getAftercareInfo(dailyDate);
-    const existingIds = new Map(info.items.filter((item) => item.type === "결석").map((item) => [item.user, item.id]));
+    const info = scheduleInfoForScope(scope);
+    const existingIds = new Map(info.items.filter((item) => item.type === INFO_ABSENT).map((item) => [item.user, item.id]));
 
     info.items = [
-      ...info.items.filter((item) => item.type !== "결석"),
+      ...info.items.filter((item) => item.type !== INFO_ABSENT),
       ...selectedUsers.map((user) => ({
         id: existingIds.get(user) || uid("aftercare"),
-        type: "결석",
+        type: INFO_ABSENT,
         user,
         time: ""
       }))
     ];
 
-    setAftercareInfo(dailyDate, info);
-    saveState("주간 결석 이용인이 저장되었습니다.");
+    setScheduleInfoForScope(scope, info);
+    saveState(scope === "aftercare" ? "방과후 결석 이용인이 저장되었습니다." : "주간 결석 이용인이 저장되었습니다.");
+    renderDaily();
+  }
+
+  function addCommuteItem(button) {
+    const scope = button.dataset.addCommuteItem || "day";
+    const wrapper = button.closest(`[data-commute-picker="${scope}"]`);
+    if (!wrapper) return;
+
+    const type = cleanSelectValue(wrapper.querySelector('[data-commute-draft="type"]')?.value) || INFO_ARRIVAL;
+    const time = cleanSelectValue(wrapper.querySelector('[data-commute-draft="time"]')?.value);
+    const users = Array.from(wrapper.querySelectorAll("[data-commute-draft-user]:checked"))
+      .map((input) => cleanSelectValue(input.value))
+      .filter(Boolean)
+      .filter(unique);
+
+    if (!time) {
+      setSyncStatus("시간을 선택해주세요.");
+      return;
+    }
+    if (!users.length) {
+      setSyncStatus("이용인을 선택해주세요.");
+      return;
+    }
+
+    const info = scheduleInfoForScope(scope);
+    users.forEach((user) => {
+      info.items.push({
+        id: uid("commute"),
+        type,
+        user,
+        time
+      });
+    });
+    commutePickerOpen = scope;
+    setScheduleInfoForScope(scope, info);
+    saveState("개별 등하원 시간이 저장되었습니다.");
+    renderDaily();
+  }
+
+  function removeCommuteItem(button) {
+    const scope = button.dataset.removeCommuteItem || "day";
+    const ids = String(button.dataset.commuteItemIds || "").split(",").map(cleanSelectValue).filter(Boolean);
+    if (!ids.length) return;
+    const info = scheduleInfoForScope(scope);
+    info.items = info.items.filter((item) => !ids.includes(item.id));
+    commutePickerOpen = scope;
+    setScheduleInfoForScope(scope, info);
+    saveState("개별 등하원 시간이 삭제되었습니다.");
     renderDaily();
   }
 
@@ -5194,19 +5488,22 @@
     const slotRecord = {
       groups: [],
       rest: "",
-      docs: "",
-      desk: "",
+      memo: "",
+      teacherNotes: [],
       supportNotes: {},
+      dayInfo: normalizeAfterInfo(),
       afterInfo: normalizeAfterInfo()
     };
 
     if (!input || typeof input !== "object") return slotRecord;
 
     slotRecord.rest = normalizeTeacherList(input.rest);
-    slotRecord.docs = normalizeTeacherList(input.docs);
-    slotRecord.desk = normalizeTeacherList(input.desk);
+    slotRecord.memo = cleanSelectValue(input.memo || input.note);
+    slotRecord.teacherNotes = normalizeScheduleTeacherNotes(input.teacherNotes || input.remarkNotes);
     slotRecord.supportNotes = normalizeSupportNotes(input.supportNotes);
+    slotRecord.dayInfo = normalizeAfterInfo(input.dayInfo);
     slotRecord.afterInfo = normalizeAfterInfo(input.afterInfo);
+    const legacyDocs = normalizeTeacherList(input.docs);
 
     if (Array.isArray(input.groups)) {
       slotRecord.groups = input.groups.map(normalizeScheduleGroup);
@@ -5214,11 +5511,18 @@
       slotRecord.groups = [normalizeScheduleGroup(input)];
     }
 
+    if (legacyDocs.length) {
+      slotRecord.groups.forEach((group) => {
+        group.paperTeachers = groupTeacherList(group).filter((teacher) => legacyDocs.includes(teacher)).filter(unique);
+      });
+    }
+
     return slotRecord;
   }
 
   function normalizeScheduleGroup(input = {}) {
     const teachers = normalizeTeacherList(input.teachers && input.teachers.length ? input.teachers : input.teacher);
+    const paperTeachers = normalizeTeacherList(input.paperTeachers || input.docsTeachers || input.docs).filter((teacher) => teachers.includes(teacher));
 
     return {
       id: input.id || uid("group"),
@@ -5226,6 +5530,7 @@
       room: cleanSelectValue(input.room),
       teacher: teachers[0] || "",
       teachers,
+      paperTeachers,
       users: normalizeUserList(input.users)
     };
   }
@@ -5238,16 +5543,16 @@
       cleanSelectValue(input.absent)
         .split(/[,/|\n]+/)
         .map(cleanSelectValue)
-        .filter(Boolean)
-        .forEach((user) => {
-          items.push(normalizeAftercareItem({ type: "결석", user }));
+          .filter(Boolean)
+          .forEach((user) => {
+          items.push(normalizeAftercareItem({ type: INFO_ABSENT, user }));
         });
 
       const arrival = cleanSelectValue(input.arrival);
-      if (arrival) items.push(normalizeAftercareItem({ type: "등원", user: arrival.replace(/\d{1,2}:\d{2}/, "").trim() || arrival, time: extractTimeValue(arrival) }));
+      if (arrival) items.push(normalizeAftercareItem({ type: INFO_ARRIVAL, user: arrival.replace(/\d{1,2}:\d{2}/, "").trim() || arrival, time: extractTimeValue(arrival) }));
 
       const departure = cleanSelectValue(input.departure);
-      if (departure) items.push(normalizeAftercareItem({ type: "하원", user: departure.replace(/\d{1,2}:\d{2}/, "").trim() || departure, time: extractTimeValue(departure) }));
+      if (departure) items.push(normalizeAftercareItem({ type: INFO_DEPARTURE, user: departure.replace(/\d{1,2}:\d{2}/, "").trim() || departure, time: extractTimeValue(departure) }));
     }
 
     return {
@@ -5257,13 +5562,36 @@
   }
 
   function normalizeAftercareItem(input = {}) {
-    const type = AFTERCARE_INFO_TYPES.includes(cleanSelectValue(input.type)) ? cleanSelectValue(input.type) : "결석";
+    const rawType = cleanSelectValue(input.type);
+    const type = AFTERCARE_INFO_TYPES.includes(rawType)
+      ? rawType
+      : rawType.includes(INFO_ARRIVAL)
+        ? INFO_ARRIVAL
+        : rawType.includes(INFO_DEPARTURE)
+          ? INFO_DEPARTURE
+          : INFO_ABSENT;
     return {
       id: input.id || uid("aftercare"),
       type,
       user: cleanSelectValue(input.user || input.person),
-      time: type === "결석" ? "" : cleanSelectValue(input.time)
+      time: type === INFO_ABSENT ? "" : cleanSelectValue(input.time)
     };
+  }
+
+  function normalizeScheduleTeacherNotes(input = []) {
+    const rawItems = Array.isArray(input)
+      ? input
+      : input && typeof input === "object"
+        ? Object.entries(input).map(([teacher, text]) => ({ teacher, text }))
+        : [];
+
+    return rawItems
+      .map((item) => ({
+        id: item.id || uid("remark"),
+        teacher: cleanSelectValue(item.teacher || item.name),
+        text: cleanSelectValue(item.text || item.memo || item.note)
+      }))
+      .filter((item) => item.teacher && item.text);
   }
 
   function normalizeSupportNotes(input = {}) {
@@ -5305,6 +5633,7 @@
       room: "",
       teacher: "",
       teachers: [],
+      paperTeachers: [],
       users: []
     };
   }
@@ -5331,6 +5660,7 @@
         return true;
       });
       setGroupTeachers(normalized, teachers);
+      normalized.paperTeachers = normalizeTeacherList(normalized.paperTeachers).filter((teacher) => teachers.includes(teacher));
 
       if (isDayDismissalSlot(slot)) {
         normalized.program = dayDismissalProgram(normalized);
@@ -5345,6 +5675,9 @@
     });
 
     slotRecord.afterInfo = normalizeAfterInfo(slotRecord.afterInfo);
+    slotRecord.dayInfo = normalizeAfterInfo(slotRecord.dayInfo);
+    slotRecord.memo = cleanSelectValue(slotRecord.memo);
+    slotRecord.teacherNotes = normalizeScheduleTeacherNotes(slotRecord.teacherNotes);
 
     if (aftercare) {
       SUPPORT_FIELDS.forEach((field) => {
@@ -5392,6 +5725,7 @@
       group.program ||
         group.teacher ||
         groupTeacherList(group).length ||
+        normalizeTeacherList(group.paperTeachers).length ||
         group.room ||
         group.rest ||
         group.docs ||
@@ -5423,6 +5757,7 @@
     const list = normalizeTeacherList(teachers);
     group.teachers = list;
     group.teacher = list[0] || "";
+    group.paperTeachers = normalizeTeacherList(group.paperTeachers).filter((teacher) => list.includes(teacher));
     return group;
   }
 
@@ -5512,6 +5847,10 @@
     return (state.settings.timeSlots || []).find(isAftercareSlot) || "";
   }
 
+  function firstDaySlot() {
+    return (state.settings.timeSlots || []).find((slot) => !isAftercareSlot(slot)) || "";
+  }
+
   function aftercareEditorRowSpan(date) {
     ensureDailySchedule(date);
     return (state.settings.timeSlots || [])
@@ -5580,12 +5919,53 @@
     removeAftercareAbsentUsers(date);
   }
 
+  function getDayInfo(date) {
+    const slot = firstDaySlot();
+    if (!slot) return normalizeAfterInfo();
+    return normalizeAfterInfo(getScheduleSlot(date, slot).dayInfo);
+  }
+
+  function setDayInfo(date, info) {
+    const normalized = normalizeAfterInfo(info);
+    (state.settings.timeSlots || []).filter((slot) => !isAftercareSlot(slot)).forEach((slot) => {
+      const slotRecord = getScheduleSlot(date, slot);
+      slotRecord.dayInfo = normalized;
+      state.dailySchedules[date][slot] = sanitizeScheduleSlot(slotRecord, slot);
+    });
+    removeDayAbsentUsers(date);
+  }
+
   function allowedUsersForSlot(slot) {
     return allowedUserGroupsForSlot(slot).flatMap((key) => state.settings.userGroups?.[key] || []).filter(unique);
   }
 
+  function absentDayUsers(date) {
+    return new Set(getDayInfo(date).items.filter((item) => item.type === INFO_ABSENT).map((item) => item.user).filter(Boolean));
+  }
+
   function absentAftercareUsers(date) {
-    return new Set(getAftercareInfo(date).items.filter((item) => item.type === "결석").map((item) => item.user).filter(Boolean));
+    return new Set(getAftercareInfo(date).items.filter((item) => item.type === INFO_ABSENT).map((item) => item.user).filter(Boolean));
+  }
+
+  function removeDayAbsentUsers(date) {
+    const absentUsers = absentDayUsers(date);
+    if (!absentUsers.size) return false;
+
+    let changed = false;
+    (state.settings.timeSlots || []).filter((slot) => !isAftercareSlot(slot)).forEach((slot) => {
+      const slotRecord = getScheduleSlot(date, slot);
+      slotRecord.groups.forEach((group) => {
+        const before = normalizeUserList(group.users);
+        const next = before.filter((user) => !absentUsers.has(user));
+        if (next.length !== before.length) {
+          group.users = next;
+          changed = true;
+        }
+      });
+      state.dailySchedules[date][slot] = sanitizeScheduleSlot(slotRecord, slot);
+    });
+
+    return changed;
   }
 
   function removeAftercareAbsentUsers(date) {
@@ -5618,6 +5998,20 @@
     const options = [];
     const start = 16 * 60;
     const end = 18 * 60 + 40;
+    for (let minutes = start; minutes <= end; minutes += 10) {
+      options.push(formatMinutesAsTime(minutes));
+    }
+    return options;
+  }
+
+  function commuteTimeOptions(scope = "day") {
+    const slots = (state.settings.timeSlots || []).filter((slot) => (scope === "aftercare" ? isAftercareInfoSlot(slot) : !isAftercareSlot(slot)));
+    if (!slots.length) return aftercareTimeOptions();
+    const start = slotStartMinutes(slots[0]);
+    const lastSlot = slots[slots.length - 1];
+    const [, rawEnd] = splitSlotTime(lastSlot);
+    const end = rawEnd ? timeToMinutes(rawEnd) : slotStartMinutes(lastSlot) + 40;
+    const options = [];
     for (let minutes = start; minutes <= end; minutes += 10) {
       options.push(formatMinutesAsTime(minutes));
     }
@@ -5677,6 +6071,13 @@
     const teachers = normalizeTeacherList(value);
     if (!teachers.length) return h(fallback);
     return `<span class="teacher-badge-list">${teachers.map((teacher) => teacherBadge(teacher, teacher)).join("")}</span>`;
+  }
+
+  function teacherBadgeListForGroup(group, fallback = "") {
+    const teachers = groupTeacherList(group);
+    const paperSet = new Set(normalizeTeacherList(group.paperTeachers));
+    if (!teachers.length) return h(fallback);
+    return `<span class="teacher-badge-list">${teachers.map((teacher) => `<span class="teacher-name" style="--teacher-color: ${h(teacherColor(teacher))}">${paperSet.has(teacher) ? "*" : ""}${h(teacher)}</span>`).join("")}</span>`;
   }
 
   function programOptionsForDate(date) {
@@ -5777,6 +6178,84 @@
         }
       </span>
     `;
+  }
+
+  function renderCommuteInfoPicker(scope, date, label, userGroupKeys, info) {
+    const value = normalizeAfterInfo(info);
+    const open = commutePickerOpen === scope;
+    const users = userGroupKeys.flatMap((key) => state.settings.userGroups?.[key] || []).filter(unique);
+    const commuteItems = value.items.filter((item) => item.type !== INFO_ABSENT);
+    const selectedLabel = commuteItems.length ? `${commuteItems.length}건 등록` : "선택";
+
+    return `
+      <span class="service-band-summary-item has-picker commute-summary-item">
+        <b>${h(label)}</b>
+        <span class="service-band-summary-value">
+          <span class="service-band-user-select ${open ? "open" : ""}" data-commute-picker-shell="${h(scope)}">
+            <button class="service-band-picker-button" data-toggle-commute-picker="${h(scope)}" type="button" aria-expanded="${open ? "true" : "false"}">
+              <span>${h(selectedLabel)}</span>
+              <span aria-hidden="true">▾</span>
+            </button>
+            ${
+              open
+                ? `
+                  <span class="service-band-commute-picker" data-commute-picker="${h(scope)}" role="group" aria-label="${h(label)}">
+                    <span class="commute-add-row">
+                      <select data-commute-draft="type" aria-label="등하원 구분">
+                        ${COMMUTE_INFO_TYPES.map((type) => `<option value="${h(type)}">${h(type)}</option>`).join("")}
+                      </select>
+                      <select data-commute-draft="time" aria-label="시간 선택">
+                        <option value="">시간 선택</option>
+                        ${commuteTimeOptions(scope).map((time) => `<option value="${h(time)}">${h(time)}</option>`).join("")}
+                      </select>
+                      <button class="mini-button" data-add-commute-item="${h(scope)}" type="button">추가</button>
+                    </span>
+                    <span class="service-band-user-picker commute-user-picker" role="group" aria-label="이용인 선택">
+                      ${
+                        users.length
+                          ? users
+                              .map(
+                                (user) => `
+                                  <label class="check-row">
+                                    <input data-commute-draft-user type="checkbox" value="${h(user)}" />
+                                    ${renderUserNameBadge(user, date)}
+                                  </label>
+                                `
+                              )
+                              .join("")
+                          : `<span class="muted">등록된 이용인 없음</span>`
+                      }
+                    </span>
+                    <span class="commute-entry-list">
+                      ${
+                        groupAftercareItems(commuteItems).length
+                          ? groupAftercareItems(commuteItems)
+                              .map(
+                                (group) => `
+                                  <span class="commute-entry">
+                                    <span><b>${h(group.label)}</b> ${renderUserNameList(group.users, date)}</span>
+                                    <button class="mini-button danger-mini" data-remove-commute-item="${h(scope)}" data-commute-item-ids="${h(group.ids.join(","))}" type="button">삭제</button>
+                                  </span>
+                                `
+                              )
+                              .join("")
+                          : `<span class="empty compact">등록된 등하원 정보가 없습니다.</span>`
+                      }
+                    </span>
+                  </span>
+                `
+                : ""
+            }
+          </span>
+        </span>
+      </span>
+    `;
+  }
+
+  function commuteSummaryText(items = []) {
+    return groupAftercareItems(items)
+      .map((group) => `${group.label.replace(/:$/, "")} ${group.users.join(", ")}`)
+      .join(" / ");
   }
 
   function programTopicListFromForm(data, major) {
@@ -6054,9 +6533,22 @@
       return;
     }
 
-    const dayAbsentPickerButton = event.target.closest("[data-toggle-day-absent-picker]");
-    if (dayAbsentPickerButton) {
-      dayAbsentPickerOpen = !dayAbsentPickerOpen;
+    const absentPickerButton = event.target.closest("[data-toggle-absent-picker]");
+    if (absentPickerButton) {
+      const scope = absentPickerButton.dataset.toggleAbsentPicker;
+      if (scope === "aftercare") {
+        aftercareAbsentPickerOpen = !aftercareAbsentPickerOpen;
+      } else {
+        dayAbsentPickerOpen = !dayAbsentPickerOpen;
+      }
+      renderDaily();
+      return;
+    }
+
+    const commutePickerButton = event.target.closest("[data-toggle-commute-picker]");
+    if (commutePickerButton) {
+      const scope = commutePickerButton.dataset.toggleCommutePicker || "day";
+      commutePickerOpen = commutePickerOpen === scope ? "" : scope;
       renderDaily();
       return;
     }
@@ -6165,6 +6657,30 @@
     const addAftercareButton = event.target.closest("[data-add-aftercare-item]");
     if (addAftercareButton) {
       addAftercareItem(addAftercareButton);
+      return;
+    }
+
+    const addCommuteButton = event.target.closest("[data-add-commute-item]");
+    if (addCommuteButton) {
+      addCommuteItem(addCommuteButton);
+      return;
+    }
+
+    const removeCommuteButton = event.target.closest("[data-remove-commute-item]");
+    if (removeCommuteButton) {
+      removeCommuteItem(removeCommuteButton);
+      return;
+    }
+
+    const addRemarkNoteButton = event.target.closest("[data-add-remark-note]");
+    if (addRemarkNoteButton) {
+      addRemarkTeacherNote(addRemarkNoteButton);
+      return;
+    }
+
+    const removeRemarkNoteButton = event.target.closest("[data-remove-remark-note]");
+    if (removeRemarkNoteButton) {
+      removeRemarkTeacherNote(removeRemarkNoteButton);
       return;
     }
 
@@ -6372,6 +6888,8 @@
     if (target.id === "daily-date") {
       dailyDate = target.value || todayIso;
       dayAbsentPickerOpen = false;
+      aftercareAbsentPickerOpen = false;
+      commutePickerOpen = "";
       renderDaily();
       return;
     }
@@ -6439,6 +6957,11 @@
       return;
     }
 
+    if (target.matches("[data-schedule-paper-teacher]")) {
+      updateSchedulePaperTeachers(target);
+      return;
+    }
+
     if (target.matches("[data-schedule-user]")) {
       updateScheduleUsers(target);
       return;
@@ -6459,8 +6982,8 @@
       return;
     }
 
-    if (target.matches("[data-day-absent-user]")) {
-      updateDayAbsentUsers(target);
+    if (target.matches("[data-absent-user]")) {
+      updateAbsentUsers(target);
       return;
     }
   });
@@ -6514,6 +7037,11 @@
 
     if (target.matches("[data-aftercare-field]")) {
       updateScheduleAftercare(target);
+      return;
+    }
+
+    if (target.matches("[data-schedule-slot-memo]")) {
+      updateScheduleSlotMemo(target);
       return;
     }
 
