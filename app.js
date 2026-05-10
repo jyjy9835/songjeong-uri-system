@@ -155,11 +155,18 @@
   let monthlyCursor = startOfMonth(parseIsoDate(todayIso));
   let vacationCursor = startOfMonth(parseIsoDate(todayIso));
   let dailyDate = todayIso;
+  let homeScheduleDate = todayIso;
   let selectedTodayTeacher = "";
+  let userEditMode = false;
+  let teacherEditMode = false;
   let selectedAssignmentTeacher = "";
   let assignmentEditMode = false;
   let assignmentDraft = null;
   let observationUserFilter = "";
+  let observationEditingId = "";
+  let observationHighlightTerms = [];
+  let observationHighlightSelection = null;
+  let observationFormDate = todayIso;
   let supportNoteEditor = null;
   let dayAbsentPickerOpen = false;
   let programDragId = "";
@@ -181,7 +188,7 @@
   const titles = {
     home: "오늘 현황",
     monthly: "월간 프로그램",
-    daily: "일일 시간표",
+    daily: "일일 시간표 제작",
     people: "이용인·교사 관리",
     vacation: "휴가 일정 및 송영 담당",
     observations: "관찰일지",
@@ -932,6 +939,7 @@
     const programs = programsForDate(todayIso);
     const moves = movesForDate(todayIso);
     const openSchedules = countFilledScheduleCells(todayIso);
+    ensureDailySchedule(homeScheduleDate);
 
     app.innerHTML = `
       <div class="dashboard-grid">
@@ -981,14 +989,18 @@
 
         <section class="panel span-12 schedule-print-panel">
           <div class="panel-head">
-            <h3>오늘 시간표</h3>
+            <h3>시간표</h3>
             <div class="panel-actions">
+              <label class="home-schedule-date-field">
+                <span class="visually-hidden">시간표 날짜</span>
+                <input data-home-schedule-date type="date" value="${h(homeScheduleDate)}" />
+              </label>
               <button class="ghost-button" data-print-schedule type="button">인쇄</button>
-              <button class="ghost-button" data-view-jump="daily" type="button">시간표 편집</button>
+              <button class="ghost-button" data-open-daily-date="${h(homeScheduleDate)}" type="button">시간표 편집</button>
             </div>
           </div>
           <div class="panel-body">
-            ${renderTodayScheduleSummary()}
+            ${renderTodayScheduleSummary(homeScheduleDate)}
           </div>
         </section>
       </div>
@@ -1536,9 +1548,10 @@
           </label>
         </div>
         <div class="toolbar-center">
-          <button class="danger-button" data-reset-daily-schedule type="button">해당 날짜 시간표 초기화</button>
+          <button class="danger-button" data-reset-daily-schedule type="button">시간표 초기화</button>
         </div>
         <div class="toolbar-right">
+          <button class="primary-button" data-save-daily-schedule type="button">저장</button>
           <button class="primary-button" data-print-schedule type="button">A4 인쇄</button>
           <span class="muted">같은 시간대의 교사와 이용인은 중복되지 않게 자동 정리됩니다.</span>
         </div>
@@ -2133,6 +2146,73 @@
     return `<option value="${h(value)}" ${selected === value ? "selected" : ""} ${disabled ? "disabled" : ""}>${h(value || emptyLabel)}</option>`;
   }
 
+  function renderObservationForm(editingObservation = null) {
+    const isEditing = Boolean(editingObservation);
+    const formDate = editingObservation?.date || observationFormDate || todayIso;
+    const highlights = isEditing ? observationHighlightTerms : observationHighlightTerms;
+    const summary = editingObservation?.summary || "";
+    return `
+      <form id="observation-form" class="field-grid">
+        <label class="field">
+          <span>날짜</span>
+          <input data-observation-date name="date" type="date" value="${h(formDate)}" required />
+        </label>
+        <label class="field">
+          <span>이용인</span>
+          <select name="user" required>
+            ${flattenUserGroups().map((user) => `<option value="${h(user)}" ${user === editingObservation?.user ? "selected" : ""}>${h(user)}</option>`).join("")}
+          </select>
+        </label>
+        <label class="field">
+          <span>관찰자</span>
+          <select name="teacher">
+            ${state.settings.teachers.map((teacher) => `<option value="${h(teacher)}" ${teacher === editingObservation?.teacher ? "selected" : ""}>${h(teacher)}</option>`).join("")}
+          </select>
+        </label>
+        <label class="field">
+          <span>관찰 시간</span>
+          <input name="activity" list="observation-time-options" value="${h(editingObservation?.activity || "")}" placeholder="시간 선택 또는 직접 입력" />
+          ${renderObservationTimeDatalist(formDate)}
+        </label>
+        <div class="field full observation-summary-field">
+          <span>내용</span>
+          <div class="observation-editor-wrap">
+            <div class="observation-highlight-editor" data-observation-summary contenteditable="true" tabindex="0" role="textbox" aria-multiline="true" data-placeholder="관찰 내용을 입력하세요.">${renderHighlightedText(summary, highlights)}</div>
+            <textarea class="visually-hidden" data-observation-summary-value name="summary">${h(summary)}</textarea>
+          </div>
+          <div class="observation-highlight-menu" data-observation-highlight-menu hidden>
+            <button data-apply-observation-highlight type="button">하이라이트 표시</button>
+          </div>
+        </div>
+        <div class="modal-actions field full">
+          ${isEditing ? `<button class="ghost-button" data-cancel-observation-edit type="button">취소</button>` : ""}
+          <button class="primary-button" type="submit">${isEditing ? "수정 저장" : "저장"}</button>
+        </div>
+      </form>
+    `;
+  }
+
+  function renderObservationTimeDatalist(date) {
+    return `
+      <datalist id="observation-time-options">
+        ${observationTimeOptionsForDate(date).map((slot) => `<option value="${h(slot)}"></option>`).join("")}
+      </datalist>
+    `;
+  }
+
+  function observationTimeOptionsForDate(date) {
+    const iso = normalizeDateInput(date) || todayIso;
+    ensureDailySchedule(iso);
+    return (state.settings.timeSlots || []).map((slot) => {
+      const slotRecord = getScheduleSlot(iso, slot);
+      const programs = (slotRecord.groups || [])
+        .map((group) => (isDayDismissalSlot(slot) ? dayDismissalProgram(group) : cleanSelectValue(group.program)))
+        .filter(Boolean)
+        .filter(unique);
+      return `${slot} · ${programs.join(", ") || "프로그램 미입력"}`;
+    }).filter(Boolean).filter(unique);
+  }
+
   function renderObservations() {
     const observations = [...state.observations].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
     const observationUsers = observations.map((item) => cleanSelectValue(item.user)).filter(Boolean).filter(unique);
@@ -2140,47 +2220,16 @@
       observationUserFilter = "";
     }
     const filteredObservations = observationUserFilter ? observations.filter((item) => cleanSelectValue(item.user) === observationUserFilter) : observations;
+    const editingObservation = state.observations.find((item) => item.id === observationEditingId) || null;
 
     app.innerHTML = `
       <div class="dashboard-grid">
         <section class="panel span-5">
           <div class="panel-head">
-            <h3>관찰일지 작성</h3>
+            <h3>${editingObservation ? "관찰일지 수정" : "관찰일지 작성"}</h3>
           </div>
           <div class="panel-body">
-            <form id="observation-form" class="field-grid">
-              <label class="field">
-                <span>날짜</span>
-                <input name="date" type="date" value="${h(todayIso)}" required />
-              </label>
-              <label class="field">
-                <span>이용인</span>
-                <select name="user" required>
-                  ${flattenUserGroups().map((user) => `<option value="${h(user)}">${h(user)}</option>`).join("")}
-                </select>
-              </label>
-              <label class="field">
-                <span>관찰자</span>
-                <select name="teacher">
-                  ${state.settings.teachers.map((teacher) => `<option value="${h(teacher)}">${h(teacher)}</option>`).join("")}
-                </select>
-              </label>
-              <label class="field">
-                <span>관찰 시간</span>
-                <input name="activity" placeholder="예: 10:00~10:30" />
-              </label>
-              <label class="field full">
-                <span>내용</span>
-                <textarea name="summary" placeholder="관찰 내용을 입력하세요." required></textarea>
-              </label>
-              <label class="field full">
-                <span>빨간 하이라이트</span>
-                <input name="highlights" placeholder="예: 공격행동, 자해, 울음" />
-              </label>
-              <div class="modal-actions field full">
-                <button class="primary-button" type="submit">저장</button>
-              </div>
-            </form>
+            ${renderObservationForm(editingObservation)}
           </div>
         </section>
         <section class="panel span-7">
@@ -2209,6 +2258,7 @@
                           <small>${h(formatShortDate(item.date))} / ${teacherBadge(item.teacher, "관찰자 미지정")}</small>
                           <span class="observation-summary">${renderHighlightedText(item.summary, item.highlights)}</span>
                           <div>
+                            <button class="ghost-button" data-edit-observation="${h(item.id)}" type="button">수정</button>
                             <button class="danger-button" data-delete-observation="${h(item.id)}" type="button">삭제</button>
                           </div>
                         </article>
@@ -2301,18 +2351,9 @@
         (row) => `
           <tr>
             <th>${teacherBadge(row.teacher, row.teacher)}</th>
-            <td>
-              <strong>${h(row.tenureLabel)}</strong>
-              <span>${row.hireDate ? `입사 ${h(row.hireDate)}` : "입사일 미입력"}</span>
-            </td>
-            <td>
-              <strong>${h(row.baseLeaveLabel)}</strong>
-              <span>${h(row.baseLeaveStatus)}</span>
-            </td>
-            <td>
-              <strong>${h(row.specialLeaveLabel)}</strong>
-              <span>${h(row.specialLeaveStatus)}</span>
-            </td>
+            <td>${row.hireDate ? `<strong>${h(row.hireDate)}</strong>` : ""}</td>
+            <td>${row.baseLeaveLabel ? `<strong>${h(row.baseLeaveLabel)}</strong>` : ""}</td>
+            <td>${row.specialLeaveLabel ? `<strong>${h(row.specialLeaveLabel)}</strong>` : ""}</td>
             <td>
               <strong>${h(row.compLabel)}</strong>
             </td>
@@ -2325,8 +2366,7 @@
       <section class="panel leave-stats-panel">
         <div class="panel-head">
           <div>
-            <h3>교사별 연월차 현황</h3>
-            <span class="muted">${h(formatLongDate(todayIso))} 기준 남은 휴가를 계산합니다.</span>
+            <h3>연월차 현황</h3>
           </div>
         </div>
         <div class="panel-body">
@@ -2509,15 +2549,18 @@
       const familyEventLabel = familyEventUsed
         ? `${formatLeaveUnits(familyEventUsed)} 사용 / ${formatLeaveUnits(familyEventRemaining)} 남음`
         : "사용 기록 없음";
+      const specialLeaveParts = [];
+      if (birthday && annualEligible) specialLeaveParts.push(`생일 ${birthdayLabel}`);
+      if (familyEventUsed) specialLeaveParts.push(`경조사 ${familyEventLabel}`);
 
       return {
         teacher,
         hireDate,
-        tenureLabel: hire ? tenureLabel(hire, today) : "입사일 필요",
-        baseLeaveLabel: annualEligible ? annualLabel : monthlyLabel,
-        baseLeaveStatus: hire ? (annualEligible ? "연차 자동 적용" : "월차 자동 적용") : "입사일 입력 후 자동 산정",
-        specialLeaveLabel: `생일 ${birthdayLabel} / 경조사 ${familyEventLabel}`,
-        specialLeaveStatus: `${birthdayStatus} · 경사 발생 시 ${SPECIAL_EVENT_LEAVE_DAYS}일`,
+        tenureLabel: hire ? tenureLabel(hire, today) : "",
+        baseLeaveLabel: hire ? (annualEligible ? annualLabel : monthlyLabel) : "",
+        baseLeaveStatus: "",
+        specialLeaveLabel: specialLeaveParts.join(" / "),
+        specialLeaveStatus: "",
         compLabel: hire ? formatLeaveCount(Math.max(0, compEarned - compUsed)) : formatLeaveCount(0),
       };
     });
@@ -2706,22 +2749,26 @@
         <section class="panel span-8">
           <div class="panel-head">
             <h3>이용인 관리</h3>
+            ${renderPeopleEditActions("users", userEditMode)}
           </div>
           <div class="panel-body">
-            <div class="people-management-grid">
-              ${USER_GROUPS.map(renderUserGroupCard).join("")}
-            </div>
+            ${renderPeopleGroupLayout()}
           </div>
         </section>
         <section class="panel span-4 teacher-management-panel">
           <div class="panel-head">
             <h3>교사 관리</h3>
+            ${renderPeopleEditActions("teachers", teacherEditMode)}
           </div>
           <div class="panel-body">
-            <form class="inline-add-form" data-add-teacher-form>
-              <input name="name" placeholder="교사 이름" autocomplete="off" />
-              <button class="primary-button" type="submit">추가</button>
-            </form>
+            ${
+              teacherEditMode
+                ? `<form class="inline-add-form" data-add-teacher-form>
+                    <input name="name" placeholder="교사 이름" autocomplete="off" />
+                    <button class="primary-button" type="submit">추가</button>
+                  </form>`
+                : ""
+            }
             <div class="people-list teacher-list">
               ${state.settings.teachers.map(renderTeacherRow).join("") || `<div class="empty">등록된 교사가 없습니다.</div>`}
             </div>
@@ -2732,21 +2779,48 @@
     `;
   }
 
+  function renderPeopleEditActions(section, active) {
+    return `
+      <div class="panel-actions people-edit-actions">
+        <button class="ghost-button" data-edit-people="${h(section)}" type="button" ${active ? "disabled" : ""}>수정</button>
+        <button class="primary-button" data-save-people="${h(section)}" type="button" ${active ? "" : "disabled"}>저장</button>
+      </div>
+    `;
+  }
+
+  function renderPeopleGroupLayout() {
+    return `
+      <div class="people-management-grid grouped-people-management-grid">
+        <div class="day-group-stack">
+          ${renderUserGroupCard(USER_GROUPS.find((group) => group.key === "dayA"))}
+          ${renderUserGroupCard(USER_GROUPS.find((group) => group.key === "dayB"))}
+        </div>
+        ${renderUserGroupCard(USER_GROUPS.find((group) => group.key === "afterMonTueThuSat"))}
+        ${renderUserGroupCard(USER_GROUPS.find((group) => group.key === "afterWedFriSat"))}
+      </div>
+    `;
+  }
+
   function renderUserGroupCard(group) {
+    if (!group) return "";
     const users = state.settings.userGroups?.[group.key] || [];
 
     return `
-      <article class="people-card">
+      <article class="people-card ${group.key === "dayA" || group.key === "dayB" ? "day-people-card" : ""}">
         <header>
           <div>
             <h4>${h(group.label)}</h4>
             <span>${users.length}명</span>
           </div>
         </header>
-        <form class="inline-add-form" data-add-user-form data-user-group="${h(group.key)}">
-          <input name="name" placeholder="이용인 이름" autocomplete="off" />
-          <button class="primary-button" type="submit">추가</button>
-        </form>
+        ${
+          userEditMode
+            ? `<form class="inline-add-form" data-add-user-form data-user-group="${h(group.key)}">
+                <input name="name" placeholder="이용인 이름" autocomplete="off" />
+                <button class="primary-button" type="submit">추가</button>
+              </form>`
+            : ""
+        }
         <div class="people-list">
           ${users.map((user) => renderUserRow(group.key, user)).join("") || `<div class="empty">등록된 이용인이 없습니다.</div>`}
         </div>
@@ -2755,6 +2829,10 @@
   }
 
   function renderUserRow(groupKey, user) {
+    if (!userEditMode) {
+      return `<div class="person-row person-summary-row"><span>${h(user)}</span></div>`;
+    }
+
     return `
       <div class="person-row">
         <input data-user-edit value="${h(user)}" aria-label="${h(user)} 이름 수정" />
@@ -2850,6 +2928,16 @@
   function renderTeacherRow(teacher) {
     const color = teacherColor(teacher);
     const profile = state.settings.teacherProfiles?.[teacher] || {};
+    if (!teacherEditMode) {
+      return `
+        <div class="person-row teacher-summary-row">
+          <span class="teacher-summary-name">${teacherBadge(teacher, teacher)}</span>
+          ${profile.hireDate ? `<span class="teacher-summary-date">입사일 ${h(profile.hireDate)}</span>` : ""}
+          ${profile.birthday ? `<span class="teacher-summary-date">생일 ${h(profile.birthday)}</span>` : ""}
+        </div>
+      `;
+    }
+
     return `
       <div class="person-row teacher-row">
         <input data-teacher-edit value="${h(teacher)}" aria-label="${h(teacher)} 이름 수정" />
@@ -2963,12 +3051,12 @@
     `;
   }
 
-  function renderTodayScheduleSummary() {
-    ensureDailySchedule(todayIso);
+  function renderTodayScheduleSummary(date = todayIso) {
+    ensureDailySchedule(date);
 
     return `
-      ${renderTodayTeacherSummary(todayIso)}
-      <div class="print-preview-wrap today-schedule-preview">${renderSchedulePrintSheet(todayIso)}</div>
+      ${renderTodayTeacherSummary(date)}
+      <div class="print-preview-wrap today-schedule-preview">${renderSchedulePrintSheet(date)}</div>
     `;
   }
 
@@ -3800,19 +3888,84 @@
     openMoveModal(date);
   }
 
+  function observationEditorElement() {
+    return document.querySelector("[data-observation-summary]");
+  }
+
+  function observationEditorText(editor = observationEditorElement()) {
+    if (!editor) return "";
+    return String(editor.innerText || editor.textContent || "")
+      .replace(/\u00a0/g, " ")
+      .replace(/\n$/, "");
+  }
+
+  function syncObservationEditorValue(editor = observationEditorElement()) {
+    const valueField = document.querySelector("[data-observation-summary-value]");
+    if (valueField) valueField.value = observationEditorText(editor);
+  }
+
+  function placeCaretAtEditorEnd(editor) {
+    if (!editor || !window.getSelection || !document.createRange) return;
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function refreshObservationEditorHighlights() {
+    const editor = observationEditorElement();
+    if (!editor) return;
+    const text = observationEditorText(editor);
+    editor.innerHTML = renderHighlightedText(text, observationHighlightTerms);
+    syncObservationEditorValue(editor);
+    placeCaretAtEditorEnd(editor);
+  }
+
+  function selectionBelongsToObservationEditor(selection, editor) {
+    if (!selection || !editor || !selection.rangeCount) return false;
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    return container === editor || editor.contains(container.nodeType === Node.ELEMENT_NODE ? container : container.parentNode);
+  }
+
+  function selectedObservationEditorText(editor) {
+    const selection = window.getSelection?.();
+    if (!selection || !selectionBelongsToObservationEditor(selection, editor) || selection.isCollapsed) return "";
+    return cleanSelectValue(selection.toString());
+  }
+
   function handleObservationSubmit(form) {
+    syncObservationEditorValue();
     const data = new FormData(form);
-    state.observations.push({
-      id: uid("obs"),
+    const wasEditing = Boolean(observationEditingId);
+    const summary = String(data.get("summary") || "").trim();
+    if (!summary) {
+      setSyncStatus("관찰 내용을 입력해주세요.");
+      observationEditorElement()?.focus();
+      return;
+    }
+    const nextObservation = normalizeObservation({
+      id: observationEditingId || uid("obs"),
       date: data.get("date"),
       user: data.get("user"),
       teacher: data.get("teacher"),
       activity: String(data.get("activity") || "").trim(),
-      summary: String(data.get("summary") || "").trim(),
-      highlights: normalizeHighlightTerms(data.get("highlights"))
+      summary,
+      highlights: observationHighlightTerms
     });
 
-    saveState("관찰일지가 저장되었습니다.");
+    if (wasEditing) {
+      state.observations = state.observations.map((item) => (item.id === observationEditingId ? nextObservation : item));
+    } else {
+      state.observations.push(nextObservation);
+    }
+
+    observationEditingId = "";
+    observationHighlightTerms = [];
+    observationFormDate = todayIso;
+    saveState(wasEditing ? "관찰일지가 수정되었습니다." : "관찰일지가 저장되었습니다.");
     render();
   }
 
@@ -3845,6 +3998,26 @@
     state.settings.userGroups[groupKey].push(name);
     syncUsersFromGroups();
     saveState("이용인이 추가되었습니다.");
+    renderPeople();
+  }
+
+  function editPeople(section = "users") {
+    if (section === "teachers") {
+      teacherEditMode = true;
+    } else {
+      userEditMode = true;
+    }
+    renderPeople();
+  }
+
+  function savePeople(section = "users") {
+    if (section === "teachers") {
+      teacherEditMode = false;
+    } else {
+      userEditMode = false;
+    }
+    syncUsersFromGroups();
+    saveState(section === "teachers" ? "교사 정보가 저장되었습니다." : "이용인 정보가 저장되었습니다.");
     renderPeople();
   }
 
@@ -3901,6 +4074,78 @@
     assignmentDraft = null;
     saveState("담당 이용인이 저장되었습니다.");
     renderPeople();
+  }
+
+  function addSelectedObservationHighlight() {
+    const editor = observationEditorElement();
+    if (!editor) return;
+    const selected = cleanSelectValue(observationHighlightSelection?.text || selectedObservationEditorText(editor));
+    if (!selected) {
+      setSyncStatus("하이라이트할 내용을 먼저 드래그해주세요.");
+      editor.focus();
+      return;
+    }
+
+    observationHighlightTerms = normalizeHighlightTerms([...observationHighlightTerms, selected]);
+    refreshObservationEditorHighlights();
+    hideObservationHighlightMenu();
+    editor.focus();
+  }
+
+  function showObservationHighlightMenu(event) {
+    const editor = event.target?.closest?.("[data-observation-summary]");
+    if (!editor) return;
+    syncObservationEditorValue(editor);
+    const selection = window.getSelection?.();
+    const selected = selectedObservationEditorText(editor);
+    if (!selection || !selected) {
+      hideObservationHighlightMenu();
+      return;
+    }
+
+    observationHighlightSelection = { text: selected };
+    const menu = document.querySelector("[data-observation-highlight-menu]");
+    const field = editor.closest(".observation-summary-field");
+    if (!menu || !field) return;
+
+    const range = selection.rangeCount ? selection.getRangeAt(0) : null;
+    const selectionRect = range?.getBoundingClientRect?.();
+    const fieldRect = field.getBoundingClientRect();
+    const sourceLeft = selectionRect && selectionRect.width ? selectionRect.left + selectionRect.width / 2 : event.clientX || fieldRect.left + 80;
+    const sourceTop = selectionRect && selectionRect.height ? selectionRect.bottom : event.clientY || fieldRect.top + 80;
+    const left = Math.min(Math.max(sourceLeft - fieldRect.left - 66, 8), Math.max(8, fieldRect.width - 148));
+    const top = Math.min(Math.max(sourceTop - fieldRect.top + 8, 42), Math.max(42, fieldRect.height - 40));
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    menu.hidden = false;
+  }
+
+  function hideObservationHighlightMenu() {
+    observationHighlightSelection = null;
+    const menu = document.querySelector("[data-observation-highlight-menu]");
+    if (menu) menu.hidden = true;
+  }
+
+  function removeObservationHighlight(term) {
+    const target = cleanSelectValue(term);
+    observationHighlightTerms = normalizeHighlightTerms(observationHighlightTerms.filter((item) => item !== target));
+    refreshObservationEditorHighlights();
+  }
+
+  function editObservation(id) {
+    const observation = state.observations.find((item) => item.id === id);
+    if (!observation) return;
+    observationEditingId = id;
+    observationHighlightTerms = normalizeHighlightTerms(observation.highlights);
+    observationFormDate = observation.date || todayIso;
+    renderObservations();
+  }
+
+  function cancelObservationEdit() {
+    observationEditingId = "";
+    observationHighlightTerms = [];
+    observationFormDate = todayIso;
+    renderObservations();
   }
 
   function updateUserAssignment(target) {
@@ -5733,6 +5978,15 @@
       return;
     }
 
+    const openDailyDateButton = event.target.closest("[data-open-daily-date]");
+    if (openDailyDateButton) {
+      dailyDate = normalizeDateInput(openDailyDateButton.dataset.openDailyDate) || todayIso;
+      currentView = "daily";
+      localStorage.setItem(ACTIVE_VIEW_KEY, currentView);
+      render();
+      return;
+    }
+
     const monthButton = event.target.closest("[data-month-action]");
     if (monthButton) {
       const action = monthButton.dataset.monthAction;
@@ -5811,6 +6065,13 @@
     if (todayTeacherButton) {
       selectedTodayTeacher = todayTeacherButton.dataset.selectTodayTeacher || "";
       renderHome();
+      return;
+    }
+
+    if (event.target.closest("[data-save-daily-schedule]")) {
+      ensureDailySchedule(dailyDate);
+      saveState("일일 시간표가 저장되었습니다.");
+      renderDaily();
       return;
     }
 
@@ -5949,6 +6210,16 @@
       return;
     }
 
+    if (event.target.closest("[data-edit-people]")) {
+      editPeople(event.target.closest("[data-edit-people]").dataset.editPeople);
+      return;
+    }
+
+    if (event.target.closest("[data-save-people]")) {
+      savePeople(event.target.closest("[data-save-people]").dataset.savePeople);
+      return;
+    }
+
     if (event.target.closest("[data-edit-assignments]")) {
       editAssignments();
       return;
@@ -6011,6 +6282,32 @@
       saveState("관찰일지가 삭제되었습니다.");
       render();
       return;
+    }
+
+    const editObservationButton = event.target.closest("[data-edit-observation]");
+    if (editObservationButton) {
+      editObservation(editObservationButton.dataset.editObservation);
+      return;
+    }
+
+    if (event.target.closest("[data-apply-observation-highlight]")) {
+      addSelectedObservationHighlight();
+      return;
+    }
+
+    const removeHighlightButton = event.target.closest("[data-remove-observation-highlight]");
+    if (removeHighlightButton) {
+      removeObservationHighlight(removeHighlightButton.dataset.removeObservationHighlight);
+      return;
+    }
+
+    if (event.target.closest("[data-cancel-observation-edit]")) {
+      cancelObservationEdit();
+      return;
+    }
+
+    if (currentView === "observations" && !event.target.closest("[data-observation-highlight-menu]") && !event.target.closest("[data-observation-summary]")) {
+      hideObservationHighlightMenu();
     }
 
     const adminActionButton = event.target.closest("[data-admin-action]");
@@ -6076,6 +6373,22 @@
       dailyDate = target.value || todayIso;
       dayAbsentPickerOpen = false;
       renderDaily();
+      return;
+    }
+
+    if (target.matches("[data-home-schedule-date]")) {
+      homeScheduleDate = normalizeDateInput(target.value) || todayIso;
+      selectedTodayTeacher = "";
+      renderHome();
+      return;
+    }
+
+    if (target.matches("[data-observation-date]")) {
+      observationFormDate = normalizeDateInput(target.value) || todayIso;
+      const datalist = document.getElementById("observation-time-options");
+      if (datalist) {
+        datalist.innerHTML = observationTimeOptionsForDate(observationFormDate).map((slot) => `<option value="${h(slot)}"></option>`).join("");
+      }
       return;
     }
 
@@ -6152,12 +6465,46 @@
     }
   });
 
+  document.addEventListener("mouseup", (event) => {
+    if (event.button !== 0) return;
+    if (event.target instanceof Element && event.target.closest("[data-observation-summary]")) {
+      window.setTimeout(() => showObservationHighlightMenu(event), 0);
+    }
+  });
+
+  document.addEventListener("keyup", (event) => {
+    if (event.target instanceof Element && event.target.closest("[data-observation-summary]")) {
+      window.setTimeout(() => showObservationHighlightMenu(event), 0);
+    }
+  });
+
+  document.addEventListener("contextmenu", (event) => {
+    if (event.target instanceof Element && event.target.closest("[data-observation-summary]")) {
+      event.preventDefault();
+      hideObservationHighlightMenu();
+    }
+  });
+
+  document.addEventListener("paste", (event) => {
+    const editor = event.target instanceof Element ? event.target.closest("[data-observation-summary]") : null;
+    if (!editor) return;
+    event.preventDefault();
+    document.execCommand("insertText", false, event.clipboardData?.getData("text/plain") || "");
+    syncObservationEditorValue(editor);
+  });
+
   document.addEventListener("input", (event) => {
     const target = event.target;
 
     if (target instanceof Element) {
       const previewForm = target.closest("form#program-form, form[data-program-update-form]");
       if (previewForm) updateProgramSpacingPreview(previewForm);
+    }
+
+    const observationEditor = target instanceof Element ? target.closest("[data-observation-summary]") : null;
+    if (observationEditor) {
+      syncObservationEditorValue(observationEditor);
+      return;
     }
 
     if (target.matches("[data-report-field]")) {

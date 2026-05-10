@@ -109,3 +109,174 @@
 127.0.0.1 - - [08/May/2026 22:37:40] code 404, message File not found
 127.0.0.1 - - [08/May/2026 22:37:40] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
 127.0.0.1 - - [08/May/2026 22:38:06] "GET /?v=20260508-2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:40:48] "GET /?v=20260508-3 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:41:28] "GET /?v=20260508-3 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:41:29] "GET /assets/songjeong-uri-logo.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:41:29] "GET /styles.css?v=20260508-3 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:41:29] "GET /app.js?v=20260508-3 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:41:29] code 404, message File not found
+127.0.0.1 - - [08/May/2026 22:41:29] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [08/May/2026 22:41:29] code 404, message File not found
+127.0.0.1 - - [08/May/2026 22:41:29] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [08/May/2026 22:41:30] "GET /?v=20260508-3 HTTP/1.1" 304 -
+127.0.0.1 - - [08/May/2026 22:41:30] code 404, message File not found
+127.0.0.1 - - [08/May/2026 22:41:30] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [08/May/2026 22:41:44] "GET /?v=20260508-3 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:41:44] "GET /styles.css?v=20260508-3 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:41:44] "GET /app.js?v=20260508-3 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:41:44] code 404, message File not found
+127.0.0.1 - - [08/May/2026 22:41:44] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [08/May/2026 22:42:50] "GET /?v=20260508-3 HTTP/1.1" 304 -
+127.0.0.1 - - [08/May/2026 22:51:00] "GET /?v=20260508-4 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:52:10] "GET /?v=20260508-4 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:52:10] "GET /styles.css?v=20260508-4 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:52:10] "GET /assets/songjeong-uri-logo.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:52:10] "GET /app.js?v=20260508-4 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:52:10] code 404, message File not found
+127.0.0.1 - - [08/May/2026 22:52:10] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [08/May/2026 22:52:11] code 404, message File not found
+127.0.0.1 - - [08/May/2026 22:52:11] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [08/May/2026 22:52:46] "GET /styles.css?v=20260508-3 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:52:46] "GET /app.js?v=20260508-3 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:52:47] "GET /?v=20260508-4 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:52:47] code 404, message File not found
+127.0.0.1 - - [08/May/2026 22:52:47] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [08/May/2026 22:52:47] "GET /styles.css?v=20260508-4 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:52:47] "GET /app.js?v=20260508-4 HTTP/1.1" 200 -
+127.0.0.1 - - [08/May/2026 22:52:47] code 404, message File not found
+127.0.0.1 - - [08/May/2026 22:52:47] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [08/May/2026 22:53:05] "GET /?v=20260508-4 HTTP/1.1" 304 -
+127.0.0.1 - - [08/May/2026 22:53:06] "GET /app.js?v=20260508-4 HTTP/1.1" 304 -
+127.0.0.1 - - [08/May/2026 22:53:06] "GET /styles.css?v=20260508-4 HTTP/1.1" 304 -
+127.0.0.1 - - [08/May/2026 22:53:06] code 404, message File not found
+127.0.0.1 - - [08/May/2026 22:53:06] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [08/May/2026 22:53:24] "GET /?v=20260508-4 HTTP/1.1" 304 -
+127.0.0.1 - - [08/May/2026 22:53:24] "GET /styles.css?v=20260508-4 HTTP/1.1" 304 -
+127.0.0.1 - - [08/May/2026 22:53:25] code 404, message File not found
+127.0.0.1 - - [08/May/2026 22:53:25] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [08/May/2026 22:54:12] "GET /?v=20260508-4 HTTP/1.1" 304 -
+127.0.0.1 - - [08/May/2026 22:54:12] "GET /styles.css?v=20260508-4 HTTP/1.1" 304 -
+127.0.0.1 - - [08/May/2026 22:54:12] "GET /app.js?v=20260508-4 HTTP/1.1" 304 -
+127.0.0.1 - - [08/May/2026 22:54:12] code 404, message File not found
+127.0.0.1 - - [08/May/2026 22:54:12] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 14:55:10] "GET /?v=20260508-4 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 14:55:10] "GET /assets/songjeong-uri-logo.jpg HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 14:55:10] "GET /styles.css?v=20260508-4 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 14:55:11] "GET /app.js?v=20260508-4 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 14:55:11] code 404, message File not found
+127.0.0.1 - - [10/May/2026 14:55:11] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 15:20:13] "GET /?v=20260510-1 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:22:39] "GET /?v=20260510-1 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:22:39] "GET /styles.css?v=20260510-1 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:22:39] "GET /assets/songjeong-uri-logo.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:22:39] "GET /app.js?v=20260510-1 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:22:39] code 404, message File not found
+127.0.0.1 - - [10/May/2026 15:22:39] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 15:22:40] code 404, message File not found
+127.0.0.1 - - [10/May/2026 15:22:40] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 15:23:08] "GET /?v=20260510-1 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:23:08] "GET /styles.css?v=20260510-1 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:23:09] "GET /app.js?v=20260510-1 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:23:09] code 404, message File not found
+127.0.0.1 - - [10/May/2026 15:23:09] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 15:36:32] "GET /?v=20260510-2 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:37:11] "GET /?v=20260510-2 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:37:12] "GET /assets/songjeong-uri-logo.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:37:12] "GET /app.js?v=20260510-2 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:37:12] "GET /styles.css?v=20260510-2 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:37:12] code 404, message File not found
+127.0.0.1 - - [10/May/2026 15:37:12] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 15:37:13] code 404, message File not found
+127.0.0.1 - - [10/May/2026 15:37:13] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 15:38:11] "GET /?v=20260510-3 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:38:47] "GET /?v=20260510-3 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:38:47] "GET /styles.css?v=20260510-3 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:38:47] "GET /assets/songjeong-uri-logo.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:38:47] "GET /app.js?v=20260510-3 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:38:48] code 404, message File not found
+127.0.0.1 - - [10/May/2026 15:38:48] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 15:38:49] code 404, message File not found
+127.0.0.1 - - [10/May/2026 15:38:49] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 15:39:10] "GET /?v=20260510-3 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:39:10] "GET /styles.css?v=20260510-3 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:39:13] "GET /app.js?v=20260510-3 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:39:13] code 404, message File not found
+127.0.0.1 - - [10/May/2026 15:39:13] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 15:39:46] "GET /?v=20260510-3 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 15:39:46] "GET /app.js?v=20260510-3 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 15:39:46] "GET /styles.css?v=20260510-3 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 15:39:47] code 404, message File not found
+127.0.0.1 - - [10/May/2026 15:39:47] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 15:53:25] "GET /?v=20260510-4 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:54:04] "GET /?v=20260510-4 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:54:04] "GET /styles.css?v=20260510-4 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:54:04] "GET /app.js?v=20260510-4 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 15:54:08] code 404, message File not found
+127.0.0.1 - - [10/May/2026 15:54:08] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:00:23] "GET /?v=20260510-4 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:00:23] "GET /styles.css?v=20260510-4 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:00:23] "GET /app.js?v=20260510-4 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:00:23] "GET /assets/songjeong-uri-logo.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:00:23] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:00:23] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:00:24] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:00:24] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:01:32] "GET /?v=20260510-5 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:02:10] "GET /?v=20260510-5 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:02:10] "GET /styles.css?v=20260510-5 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:02:10] "GET /assets/songjeong-uri-logo.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:02:10] "GET /app.js?v=20260510-5 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:02:11] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:02:11] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:02:11] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:02:11] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:02:41] "GET /?v=20260510-5 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:02:41] "GET /styles.css?v=20260510-5 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:02:41] "GET /app.js?v=20260510-5 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:02:44] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:02:44] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:04:37] "GET /?v=20260510-5 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 16:04:37] "GET /styles.css?v=20260510-5 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 16:04:37] "GET /app.js?v=20260510-5 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 16:04:38] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:04:38] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:07:00] "GET /?v=20260510-5 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:07:00] "GET /styles.css?v=20260510-6 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:07:00] "GET /app.js?v=20260510-6 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:07:01] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:07:01] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:07:10] "GET /?v=20260510-6 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:08:26] "GET /?v=20260510-6 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:08:26] "GET /styles.css?v=20260510-6 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:08:26] "GET /assets/songjeong-uri-logo.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:08:26] "GET /app.js?v=20260510-6 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:08:27] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:08:27] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:08:27] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:08:27] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:08:53] "GET /?v=20260510-6 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:08:53] "GET /styles.css?v=20260510-6 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 16:08:53] "GET /app.js?v=20260510-6 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 16:08:54] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:08:54] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:11:14] "GET /?v=20260510-7 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:12:45] "GET /?v=20260510-7 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:12:45] "GET /styles.css?v=20260510-7 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:12:45] "GET /app.js?v=20260510-7 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:12:45] "GET /assets/songjeong-uri-logo.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:12:46] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:12:46] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:12:46] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:12:46] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:13:12] "GET /?v=20260510-7 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:13:12] "GET /styles.css?v=20260510-7 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:13:12] "GET /app.js?v=20260510-7 HTTP/1.1" 200 -
+127.0.0.1 - - [10/May/2026 16:13:12] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:13:12] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:13:35] "GET /?v=20260510-7 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 16:13:35] "GET /styles.css?v=20260510-7 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 16:13:35] "GET /app.js?v=20260510-7 HTTP/1.1" 304 -
+127.0.0.1 - - [10/May/2026 16:13:35] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:13:35] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
+127.0.0.1 - - [10/May/2026 16:13:36] code 404, message File not found
+127.0.0.1 - - [10/May/2026 16:13:36] "GET /.netlify/functions/shared-data HTTP/1.1" 404 -
